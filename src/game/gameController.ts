@@ -7,8 +7,9 @@ export function makeGuess(state: GameState, guess: Guess): GameState {
   const nextGrid = [...state.gridTiles];
   nextGrid[state.guessesSoFar.length] = tiles;
 
+  // gameController.ts
   const newLives = state.livesRemaining - 1;
-  const livesLost = 6 - newLives; // assuming max 6 lives
+  const livesLost = state.maxLives - newLives;
 
   // Update clue unlocks based on lives lost
   const newClueState = { ...state.clueState };

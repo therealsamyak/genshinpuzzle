@@ -45,6 +45,7 @@ export interface GameState {
   guessesSoFar: Guess[];
   gridTiles: TileState[][];
   livesRemaining: number;
+  maxLives: number; // ✅ add this
   clueState: ClueState;
   isWin: boolean;
   isOver: boolean;
