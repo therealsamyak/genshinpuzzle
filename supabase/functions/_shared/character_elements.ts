@@ -1,6 +1,9 @@
 // AUTO-GENERATED. DO NOT EDIT.
 // Generated from src/game/characters.ts
-export const CHARACTER_ELEMENT: Record<string, string> = {
+
+export type Element = "Pyro" | "Hydro" | "Electro" | "Cryo" | "Dendro" | "Anemo" | "Geo" | "None";
+
+export const CHARACTER_ELEMENTS: Record<string, Element> = {
   "Aino": "Hydro",
   "Albedo": "Geo",
   "Alhaitham": "Dendro",
@@ -118,3 +121,7 @@ export const CHARACTER_ELEMENT: Record<string, string> = {
   "Zhongli": "Geo",
   "Zibai": "Geo"
 };
+
+export function getElementForCharacter(name: string): Element {
+  return CHARACTER_ELEMENTS[name] ?? "None";
+}

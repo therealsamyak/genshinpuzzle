@@ -109,7 +109,6 @@ export default function SubmitDummy() {
           method: "POST",
           headers: {
             apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-            Accept: "application/json",
           },
           body: form,
         },

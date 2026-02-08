@@ -5,22 +5,23 @@ export const config = {
 // supabase/functions/create_dummy_submission/index.ts
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getElementForCharacter } from "../_shared/character_elements.ts";
+import type { Element } from "../_shared/character_elements.ts";
 
 const MAX_BYTES = 1_048_576; // 1MB
 const MAX_SUBMISSIONS = 1000;
 const BUCKET = "submission-images";
 
 const corsHeaders = {
-  "access-control-allow-origin": "*",
-  "access-control-allow-headers":
-    "authorization, x-client-info, apikey, content-type",
+  "access-control-allow-origin": "*", // or your exact site origin
   "access-control-allow-methods": "POST, OPTIONS",
+  "access-control-allow-headers":
+    "content-type, apikey, authorization, x-client-info",
 };
 
 serve(async (req) => {
-  // CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
@@ -72,38 +73,6 @@ serve(async (req) => {
     const team2 = form.get("team2");
     const team3 = form.get("team3");
 
-    const elementsRaw = form.get("elements");
-
-    let elements: unknown = null;
-
-    if (typeof elementsRaw === "string" && elementsRaw.trim().length > 0) {
-      try {
-        elements = JSON.parse(elementsRaw);
-      } catch {
-        return new Response("Invalid elements JSON", {
-          status: 400,
-          headers: corsHeaders,
-        });
-      }
-
-      if (
-        !Array.isArray(elements) ||
-        elements.length !== 4 ||
-        elements.some((x) => typeof x !== "string")
-      ) {
-        return new Response("elements must be an array of 4 strings", {
-          status: 400,
-          headers: corsHeaders,
-        });
-      }
-    } else {
-      // If you want to require it:
-      return new Response("Missing elements", {
-        status: 400,
-        headers: corsHeaders,
-      });
-    }
-
     const strongestHitRaw = form.get("strongestHit");
     const totalDpsRaw = form.get("totalDps");
     const uidRaw = form.get("genshinUid");
@@ -141,6 +110,21 @@ serve(async (req) => {
         headers: corsHeaders,
       });
     }
+
+    // Derive elements server-side (do not trust client)
+    const derivedElements = team.map((name) => getElementForCharacter(name));
+    const unknown = team.filter((name, i) => derivedElements[i] === "None");
+
+    // Validate: all characters must be known and have a real element
+    if (unknown.length > 0) {
+      return new Response(`Unknown character(s): ${unknown.join(", ")}`, {
+        status: 400,
+        headers: corsHeaders,
+      });
+    }
+
+    // If you want strict typing, cast after validation
+    const elementsTyped = derivedElements as Element[];
 
     if (new Set(team).size !== 4) {
       return new Response("Team must not contain duplicates", {
@@ -217,7 +201,7 @@ serve(async (req) => {
         strongest_hit,
         total_dps,
         genshin_uid,
-        elements,
+        elements: elementsTyped,
       })
       .select("id")
       .single();
