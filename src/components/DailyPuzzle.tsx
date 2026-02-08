@@ -15,38 +15,23 @@ export default function DailyPuzzle() {
     "Geo",
   ];
 
+  const [filterMode, setFilterMode] = useState<"all" | "elements">("all");
+
   const [activeElements, setActiveElements] = useState<
     Record<Element, boolean>
   >(() =>
     ELEMENTS.reduce(
       (acc, el) => {
-        acc[el] = true;
+        acc[el] = false; // all element buttons off by default; "All" mode shows everything
         return acc;
       },
       {} as Record<Element, boolean>,
     ),
   );
 
-  const toggleElement = (el: Element) => {
-    setActiveElements((prev) => ({
-      ...prev,
-      [el]: !prev[el],
-    }));
-  };
-
-  const enableAllElements = () => {
-    setActiveElements(
-      ELEMENTS.reduce(
-        (acc, el) => {
-          acc[el] = true;
-          return acc;
-        },
-        {} as Record<Element, boolean>,
-      ),
-    );
-  };
-
-  const disableAllElements = () => {
+  const clickAll = () => {
+    setFilterMode("all");
+    // turn all element buttons off
     setActiveElements(
       ELEMENTS.reduce(
         (acc, el) => {
@@ -58,6 +43,20 @@ export default function DailyPuzzle() {
     );
   };
 
+  const toggleElement = (el: Element) => {
+    setFilterMode("elements");
+    setActiveElements((prev) => {
+      const next = { ...prev, [el]: !prev[el] };
+
+      const anyOn = ELEMENTS.some((e) => next[e]);
+      if (!anyOn) {
+        setFilterMode("all");
+      }
+
+      return next;
+    });
+  };
+
   const [state, setState] = useState<GameState>(initialState);
   const [preview, setPreview] = useState<string[]>([]);
 
@@ -67,7 +66,7 @@ export default function DailyPuzzle() {
 
   const isGameOver = state.isWin || state.isOver;
 
-  const answerPreview = state.puzzle.team.map((c: any) => c.name);
+  const answerPreview = state.puzzle.team.map((c) => c.name);
   const displaySlots = isGameOver ? answerPreview : preview;
 
   // Flatten guessed characters
@@ -251,8 +250,31 @@ export default function DailyPuzzle() {
               flexWrap: "wrap",
             }}
           >
+            {/* All button (same style as element buttons) */}
+            <button
+              onClick={clickAll}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 6,
+                border: "1px solid #444",
+                background: filterMode === "all" ? "#3a3a3a" : "#1a1a1a",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 0,
+                opacity: filterMode === "all" ? 1 : 0.6,
+              }}
+              title="All"
+              aria-pressed={filterMode === "all"}
+            >
+              <span style={{ fontSize: 12, fontWeight: 700 }}>ALL</span>
+            </button>
+
+            {/* Element buttons (no None button) */}
             {ELEMENTS.map((el) => {
-              const isOn = activeElements[el];
+              const isOn = filterMode === "elements" && activeElements[el];
 
               return (
                 <button
@@ -269,8 +291,10 @@ export default function DailyPuzzle() {
                     alignItems: "center",
                     justifyContent: "center",
                     padding: 0,
+                    opacity: filterMode === "all" ? 0.6 : 1,
                   }}
                   title={el}
+                  aria-pressed={isOn}
                 >
                   <img
                     src={`/genshinpuzzle/icons/elements/${el}_Icon.png`}
@@ -288,11 +312,6 @@ export default function DailyPuzzle() {
                 </button>
               );
             })}
-
-            <button onClick={disableAllElements} style={{ marginLeft: 12 }}>
-              None
-            </button>
-            <button onClick={enableAllElements}>All</button>
           </div>
 
           {/* Character Grid */}
@@ -305,7 +324,11 @@ export default function DailyPuzzle() {
             }}
           >
             {Object.entries(CHARACTER_DATA)
-              .filter(([_, data]) => activeElements[data.element as Element])
+              .filter(([_, data]) => {
+                if (filterMode === "all") return true;
+                return activeElements[data.element as Element];
+              })
+
               .map(([name]) => (
                 <button
                   key={name}
