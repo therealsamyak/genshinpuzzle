@@ -21,6 +21,10 @@ export default function SubmitDummy() {
 
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submissionId, setSubmissionId] = useState<string | null>(null);
+
   /* ================= TEAM SELECTION ================= */
 
   const [preview, setPreview] = useState<string[]>([]);
@@ -71,6 +75,59 @@ export default function SubmitDummy() {
       if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
     };
   }, [imagePreviewUrl]);
+
+  /* SERVER */
+  const submitDummy = async () => {
+    if (!isValid || !file) return;
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+    setSubmissionId(null);
+
+    try {
+      const form = new FormData();
+      form.append("image", file);
+
+      form.append("team0", preview[0] ?? "");
+      form.append("team1", preview[1] ?? "");
+      form.append("team2", preview[2] ?? "");
+      form.append("team3", preview[3] ?? "");
+
+      const elements = preview.map((name) => CHARACTER_DATA[name].element);
+      form.append("elements", JSON.stringify(elements));
+
+      form.append("strongestHit", String(Number(strongestHit)));
+      form.append("totalDps", String(Number(totalDps)));
+
+      if (genshinUid.trim()) {
+        form.append("genshinUid", genshinUid.trim());
+      }
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create_dummy_submission`,
+        {
+          method: "POST",
+          headers: {
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            Accept: "application/json",
+          },
+          body: form,
+        },
+      );
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Request failed (${res.status})`);
+      }
+
+      const data = (await res.json()) as { submissionId: string };
+      setSubmissionId(data.submissionId);
+    } catch (e: unknown) {
+      setSubmitError(e instanceof Error ? e.message : "Submission failed.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   /* ================= ELEMENT FILTER (MATCH DAILY) ================= */
 
@@ -272,7 +329,8 @@ export default function SubmitDummy() {
               }}
             >
               {Object.entries(CHARACTER_DATA)
-                .filter(([_, data]) => {
+                .filter((entry) => {
+                  const data = entry[1];
                   if (filterMode === "all") return true;
                   return activeElements[data.element as Element];
                 })
@@ -412,21 +470,25 @@ export default function SubmitDummy() {
 
             <div style={{ marginTop: 16 }}>
               <button
-                disabled={!isValid}
+                disabled={!isValid || isSubmitting}
                 style={{ width: "100%" }}
-                onClick={() => {
-                  console.log("Submit Dummy clicked", {
-                    file,
-                    preview,
-                    strongestHit,
-                    totalDps,
-                    genshinUid,
-                  });
-                  alert("Clicked submit. Next step: wire Supabase.");
-                }}
+                onClick={submitDummy}
               >
-                Submit Dummy
+                {isSubmitting ? "Submitting..." : "Submit Dummy"}
               </button>
+
+              {submitError && (
+                <div style={{ marginTop: 10, color: "#ff6b6b" }}>
+                  {submitError}
+                </div>
+              )}
+
+              {submissionId && (
+                <div style={{ marginTop: 10 }}>
+                  Submission ID: <b>{submissionId}</b>
+                </div>
+              )}
+
               {!isValid && (
                 <div style={{ marginTop: 8, opacity: 0.8, fontSize: 12 }}>
                   Required: PNG ≤ 1MB, select 4 unique characters, and enter

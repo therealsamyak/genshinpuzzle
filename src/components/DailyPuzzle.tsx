@@ -146,23 +146,6 @@ export default function DailyPuzzle() {
     }));
   };
 
-  useEffect(() => {
-    if (!state.isWin) return;
-
-    setState((prev) => ({
-      ...prev,
-      clueState: {
-        ...prev.clueState,
-        strongestHitUnlocked: true,
-        totalDpsUnlocked: true,
-        elementsUnlocked: true,
-        strongestHitRevealed: true,
-        totalDpsRevealed: true,
-        elementsRevealed: true,
-      },
-    }));
-  }, [state.isWin]);
-
   // ---- Grid background color ----
 
   const getGridBg = (name: string) => {
@@ -347,7 +330,8 @@ export default function DailyPuzzle() {
               }}
             >
               {Object.entries(CHARACTER_DATA)
-                .filter(([_, data]) => {
+                .filter((entry) => {
+                  const data = entry[1];
                   if (filterMode === "all") return true;
                   return activeElements[data.element as Element];
                 })
