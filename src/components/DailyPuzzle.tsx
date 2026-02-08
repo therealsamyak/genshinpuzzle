@@ -3,6 +3,7 @@ import type { GameState, Guess, Element } from "../game/types";
 import { initialState } from "../game/initialState";
 import { makeGuess } from "../game/gameController";
 import { CHARACTER_DATA } from "../game/characters";
+import TopTabs from "./TopTabs";
 
 export default function DailyPuzzle() {
   const ELEMENTS: Element[] = [
@@ -93,8 +94,27 @@ export default function DailyPuzzle() {
 
   const submitGuess = useCallback(() => {
     if (preview.length !== 4 || isGameOver) return;
+
     const guess: Guess = { characters: preview };
-    setState(makeGuess(state, guess));
+    const next = makeGuess(state, guess);
+
+    // If this guess wins, reveal all hints (but still allow the user to "see them all")
+    const finalState = next.isWin
+      ? {
+          ...next,
+          clueState: {
+            ...next.clueState,
+            strongestHitUnlocked: true,
+            totalDpsUnlocked: true,
+            elementsUnlocked: true,
+            strongestHitRevealed: true,
+            totalDpsRevealed: true,
+            elementsRevealed: true,
+          },
+        }
+      : next;
+
+    setState(finalState);
     setPreview([]);
   }, [preview, isGameOver, state]);
 
@@ -126,6 +146,23 @@ export default function DailyPuzzle() {
     }));
   };
 
+  useEffect(() => {
+    if (!state.isWin) return;
+
+    setState((prev) => ({
+      ...prev,
+      clueState: {
+        ...prev.clueState,
+        strongestHitUnlocked: true,
+        totalDpsUnlocked: true,
+        elementsUnlocked: true,
+        strongestHitRevealed: true,
+        totalDpsRevealed: true,
+        elementsRevealed: true,
+      },
+    }));
+  }, [state.isWin]);
+
   // ---- Grid background color ----
 
   const getGridBg = (name: string) => {
@@ -135,373 +172,361 @@ export default function DailyPuzzle() {
   };
 
   return (
-    <div style={{ padding: "1rem" }}>
-      {/* Title & Game Over */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "12px",
-          marginBottom: "0.5rem",
-        }}
-      >
-        <h2 style={{ margin: 0 }}>Genshin Dummy Guesser</h2>
+    <div style={{ minHeight: "100vh" }}>
+      <TopTabs
+        statusText={
+          isGameOver
+            ? state.isWin
+              ? "You solved the puzzle"
+              : "Game Over"
+            : undefined
+        }
+        statusColor={state.isWin ? "lightgreen" : "#ff6b6b"}
+      />
 
-        {isGameOver && (
-          <div
-            style={{
-              flex: 1,
-              textAlign: "center",
-              fontSize: "1.4rem",
-              fontWeight: 700,
-              color: state.isWin ? "lightgreen" : "#ff6b6b",
-            }}
-          >
-            {state.isWin ? "You solved the puzzle" : "Game Over"}
-          </div>
-        )}
-      </div>
-
-      {/* ================= MAIN LAYOUT ================= */}
-      <div
-        style={{
-          display: "flex",
-          gap: "2rem",
-          minHeight: "100vh",
-          justifyContent: "flex-start", // ✅ top (main axis)
-          alignItems: "stretch", // ✅ normal
-        }}
-      >
-        {/* ============== LEFT SIDE ============== */}
-        <div style={{ flex: 1, minWidth: 760, maxWidth: 760 }}>
-          {/* Preview Row */}
-          <div
-            style={{
-              display: "flex",
-              gap: "8px",
-              justifyContent: "center",
-              marginBottom: "1rem",
-            }}
-          >
-            {/* Character Select */}
-            {[0, 1, 2, 3].map((i) => {
-              const char = displaySlots[i];
-
-              return (
-                <div
-                  key={i}
-                  onClick={() => !isGameOver && char && removePreviewAt(i)}
-                  style={{
-                    width: 72,
-                    height: 72,
-                    border: "2px solid #444",
-                    borderRadius: 6,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: "#1f1f1f",
-                    cursor: char ? "pointer" : "default",
-                    opacity: char ? 1 : 0.6,
-                  }}
-                  title={char ? "Click to remove" : undefined}
-                >
-                  {char && (
-                    <img
-                      src={CHARACTER_DATA[char].iconUrl}
-                      alt={char}
-                      style={{
-                        width: 56,
-                        height: 56,
-                        pointerEvents: "none", // IMPORTANT
-                      }}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Controls */}
-          <div style={{ textAlign: "center", marginBottom: "1rem" }}>
-            <button
-              onClick={submitGuess}
-              disabled={preview.length !== 4 || isGameOver}
-              style={{ marginRight: "0.5rem" }}
-            >
-              Submit Guess
-            </button>
-
-            <button
-              onClick={removeLastPreview}
-              disabled={preview.length === 0 || isGameOver}
-            >
-              Backspace
-            </button>
-          </div>
-
-          {/* Element Filters */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              gap: "8px",
-              marginBottom: "1rem",
-              flexWrap: "wrap",
-            }}
-          >
-            {/* All button (same style as element buttons) */}
-            <button
-              onClick={clickAll}
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 6,
-                border: "1px solid #444",
-                background: filterMode === "all" ? "#3a3a3a" : "#1a1a1a",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 0,
-                opacity: filterMode === "all" ? 1 : 0.6,
-              }}
-              title="All"
-              aria-pressed={filterMode === "all"}
-            >
-              <span style={{ fontSize: 12, fontWeight: 700 }}>ALL</span>
-            </button>
-
-            {/* Element buttons (no None button) */}
-            {ELEMENTS.map((el) => {
-              const isOn = filterMode === "elements" && activeElements[el];
-
-              return (
-                <button
-                  key={el}
-                  onClick={() => toggleElement(el)}
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 6,
-                    border: "1px solid #444",
-                    background: isOn ? "#3a3a3a" : "#1a1a1a",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: 0,
-                    opacity: filterMode === "all" ? 0.6 : 1,
-                  }}
-                  title={el}
-                  aria-pressed={isOn}
-                >
-                  <img
-                    src={`/genshinpuzzle/icons/elements/${el}_Icon.png`}
-                    alt={el}
-                    style={{
-                      width: 30,
-                      height: 30,
-                      objectFit: "contain",
-                      display: "block",
-                      margin: "0 auto",
-                      opacity: isOn ? 1 : 0.35,
-                      pointerEvents: "none",
-                    }}
-                  />
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Character Grid */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(10, 1fr)",
-              gap: "8px",
-              width: "100%",
-            }}
-          >
-            {Object.entries(CHARACTER_DATA)
-              .filter(([_, data]) => {
-                if (filterMode === "all") return true;
-                return activeElements[data.element as Element];
-              })
-
-              .map(([name]) => (
-                <button
-                  key={name}
-                  onClick={() => addToPreview(name)}
-                  disabled={isGameOver}
-                  style={{
-                    width: 64,
-                    height: 64,
-                    padding: 4,
-                    borderRadius: 6,
-                    border: "1px solid #444",
-                    background: getGridBg(name),
-                    cursor: "pointer",
-                  }}
-                >
-                  <img
-                    src={CHARACTER_DATA[name].iconUrl}
-                    alt={name}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "contain",
-                    }}
-                  />
-                </button>
-              ))}
-          </div>
-        </div>
-
-        {/* ============== RIGHT SIDE ============== */}
-        <div style={{ width: "360px", flexShrink: 0 }}>
-          {/* Hints */}
-          <h3 style={{ marginTop: "1.5rem" }}>Hints</h3>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              columnGap: 12,
-              rowGap: 12,
-              alignItems: "center",
-            }}
-          >
-            {/* Strongest Hit */}
-            <button
-              style={{ width: "100%" }}
-              disabled={
-                !state.clueState.strongestHitUnlocked ||
-                state.clueState.strongestHitRevealed
-              }
-              onClick={() => revealHint("strongestHit")}
-            >
-              Reveal Strongest Hit
-            </button>
-
-            <div style={{ minHeight: 22, opacity: 0.9 }}>
-              {state.clueState.strongestHitRevealed
-                ? state.puzzle.strongestHit
-                : ""}
-            </div>
-
-            {/* Total DPS */}
-            <button
-              style={{ width: "100%" }}
-              disabled={
-                !state.clueState.totalDpsUnlocked ||
-                state.clueState.totalDpsRevealed
-              }
-              onClick={() => revealHint("totalDps")}
-            >
-              Reveal Total DPS
-            </button>
-
-            <div style={{ minHeight: 22, opacity: 0.9 }}>
-              {state.clueState.totalDpsRevealed ? state.puzzle.totalDps : ""}
-            </div>
-
-            {/* Elements */}
-            <button
-              style={{ width: "100%" }}
-              disabled={
-                !state.clueState.elementsUnlocked ||
-                state.clueState.elementsRevealed
-              }
-              onClick={() => revealHint("elements")}
-            >
-              Reveal Elements
-            </button>
-
+      <div style={{ padding: "1rem" }}>
+        {/* ================= MAIN LAYOUT ================= */}
+        <div
+          style={{
+            display: "flex",
+            gap: "2rem",
+            minHeight: "100vh",
+            justifyContent: "flex-start", // ✅ top (main axis)
+            alignItems: "stretch", // ✅ normal
+          }}
+        >
+          {/* ============== LEFT SIDE ============== */}
+          <div style={{ flex: 1, minWidth: 760, maxWidth: 760 }}>
+            {/* Preview Row */}
             <div
-              style={{
-                minHeight: 22,
-                opacity: 0.9,
-                display: "flex",
-                gap: 6,
-                alignItems: "center",
-                flexWrap: "wrap",
-              }}
-            >
-              {state.clueState.elementsRevealed
-                ? state.puzzle.team.map((c, idx) => (
-                    <img
-                      key={`${c.element}-${idx}`}
-                      src={`/genshinpuzzle/icons/elements/${c.element}_Icon.png`}
-                      alt={c.element}
-                      title={c.element}
-                      style={{
-                        width: 22,
-                        height: 22,
-                        objectFit: "contain",
-                        display: "block",
-                      }}
-                    />
-                  ))
-                : ""}
-            </div>
-          </div>
-
-          {/* Guesses */}
-          <h3>Guesses</h3>
-          {state.guessesSoFar.map((guess, i) => (
-            <div
-              key={i}
               style={{
                 display: "flex",
                 gap: "8px",
-                marginBottom: "0.5rem",
-                flexWrap: "nowrap",
+                justifyContent: "center",
+                marginBottom: "1rem",
               }}
             >
-              {guess.characters.map((char, j) => {
-                const tile = state.gridTiles[i][j];
-                const color =
-                  tile === "GREEN"
-                    ? "#2f6f3a"
-                    : tile === "YELLOW"
-                      ? "#7a6a2b"
-                      : "#555";
+              {/* Character Select */}
+              {[0, 1, 2, 3].map((i) => {
+                const char = displaySlots[i];
 
                 return (
                   <div
-                    key={j}
-                    title={char}
+                    key={i}
+                    onClick={() => !isGameOver && char && removePreviewAt(i)}
                     style={{
-                      width: 64,
-                      height: 64,
+                      width: 72,
+                      height: 72,
+                      border: "2px solid #444",
                       borderRadius: 6,
-                      border: "1px solid #444",
-                      background: color,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      padding: 0,
-                      flexShrink: 0,
+                      background: "#1f1f1f",
+                      cursor: char ? "pointer" : "default",
+                      opacity: char ? 1 : 0.6,
                     }}
+                    title={char ? `${char} (click to remove)` : undefined}
                   >
-                    <img
-                      src={CHARACTER_DATA[char].iconUrl}
-                      alt={char}
-                      style={{
-                        width: 56,
-                        height: 56,
-                        objectFit: "contain",
-                        display: "block",
-                        margin: "0 auto",
-                        pointerEvents: "none",
-                      }}
-                    />
+                    {char && (
+                      <img
+                        src={CHARACTER_DATA[char].iconUrl}
+                        alt={char}
+                        style={{
+                          width: 56,
+                          height: 56,
+                          pointerEvents: "none", // IMPORTANT
+                        }}
+                      />
+                    )}
                   </div>
                 );
               })}
             </div>
-          ))}
+
+            {/* Controls */}
+            <div style={{ textAlign: "center", marginBottom: "1rem" }}>
+              <button
+                onClick={submitGuess}
+                disabled={preview.length !== 4 || isGameOver}
+                style={{ marginRight: "0.5rem" }}
+              >
+                Submit Guess
+              </button>
+
+              <button
+                onClick={removeLastPreview}
+                disabled={preview.length === 0 || isGameOver}
+              >
+                Backspace
+              </button>
+            </div>
+
+            {/* Element Filters */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: "8px",
+                marginBottom: "1rem",
+                flexWrap: "wrap",
+              }}
+            >
+              {/* All button (same style as element buttons) */}
+              <button
+                onClick={clickAll}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 6,
+                  border: "1px solid #444",
+                  background: filterMode === "all" ? "#3a3a3a" : "#1a1a1a",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 0,
+                  opacity: filterMode === "all" ? 1 : 0.6,
+                }}
+                title="All"
+                aria-pressed={filterMode === "all"}
+              >
+                <span style={{ fontSize: 12, fontWeight: 700 }}>ALL</span>
+              </button>
+
+              {/* Element buttons (no None button) */}
+              {ELEMENTS.map((el) => {
+                const isOn = filterMode === "elements" && activeElements[el];
+
+                return (
+                  <button
+                    key={el}
+                    onClick={() => toggleElement(el)}
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 6,
+                      border: "1px solid #444",
+                      background: isOn ? "#3a3a3a" : "#1a1a1a",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: 0,
+                      opacity: filterMode === "all" ? 0.6 : 1,
+                    }}
+                    title={el}
+                    aria-pressed={isOn}
+                  >
+                    <img
+                      src={`/genshinpuzzle/icons/elements/${el}_Icon.png`}
+                      alt={el}
+                      style={{
+                        width: 30,
+                        height: 30,
+                        objectFit: "contain",
+                        display: "block",
+                        margin: "0 auto",
+                        opacity: isOn ? 1 : 0.35,
+                        pointerEvents: "none",
+                      }}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Character Grid */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(10, 1fr)",
+                gap: "8px",
+                width: "100%",
+              }}
+            >
+              {Object.entries(CHARACTER_DATA)
+                .filter(([_, data]) => {
+                  if (filterMode === "all") return true;
+                  return activeElements[data.element as Element];
+                })
+
+                .map(([name]) => (
+                  <button
+                    key={name}
+                    onClick={() => addToPreview(name)}
+                    disabled={isGameOver}
+                    title={name}
+                    style={{
+                      width: 64,
+                      height: 64,
+                      padding: 4,
+                      borderRadius: 6,
+                      border: "1px solid #444",
+                      background: getGridBg(name),
+                      cursor: "pointer",
+                    }}
+                  >
+                    <img
+                      src={CHARACTER_DATA[name].iconUrl}
+                      alt={name}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                      }}
+                    />
+                  </button>
+                ))}
+            </div>
+          </div>
+
+          {/* ============== RIGHT SIDE ============== */}
+          <div style={{ width: "360px", flexShrink: 0 }}>
+            {/* Hints */}
+            <h3 style={{ marginTop: "1.5rem" }}>Hints</h3>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                columnGap: 12,
+                rowGap: 12,
+                alignItems: "center",
+              }}
+            >
+              {/* Strongest Hit */}
+              <button
+                style={{ width: "100%" }}
+                disabled={
+                  !state.clueState.strongestHitUnlocked ||
+                  state.clueState.strongestHitRevealed
+                }
+                onClick={() => revealHint("strongestHit")}
+              >
+                Reveal Strongest Hit
+              </button>
+
+              <div style={{ minHeight: 22, opacity: 0.9 }}>
+                {state.clueState.strongestHitRevealed
+                  ? state.puzzle.strongestHit
+                  : ""}
+              </div>
+
+              {/* Total DPS */}
+              <button
+                style={{ width: "100%" }}
+                disabled={
+                  !state.clueState.totalDpsUnlocked ||
+                  state.clueState.totalDpsRevealed
+                }
+                onClick={() => revealHint("totalDps")}
+              >
+                Reveal Total DPS
+              </button>
+
+              <div style={{ minHeight: 22, opacity: 0.9 }}>
+                {state.clueState.totalDpsRevealed ? state.puzzle.totalDps : ""}
+              </div>
+
+              {/* Elements */}
+              <button
+                style={{ width: "100%" }}
+                disabled={
+                  !state.clueState.elementsUnlocked ||
+                  state.clueState.elementsRevealed
+                }
+                onClick={() => revealHint("elements")}
+              >
+                Reveal Elements
+              </button>
+
+              <div
+                style={{
+                  minHeight: 22,
+                  opacity: 0.9,
+                  display: "flex",
+                  gap: 6,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}
+              >
+                {state.clueState.elementsRevealed
+                  ? state.puzzle.team.map((c, idx) => (
+                      <img
+                        key={`${c.element}-${idx}`}
+                        src={`/genshinpuzzle/icons/elements/${c.element}_Icon.png`}
+                        alt={c.element}
+                        title={c.element}
+                        style={{
+                          width: 22,
+                          height: 22,
+                          objectFit: "contain",
+                          display: "block",
+                        }}
+                      />
+                    ))
+                  : ""}
+              </div>
+            </div>
+
+            {/* Guesses */}
+            <h3>Guesses</h3>
+            {state.guessesSoFar.map((guess, i) => (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  gap: "8px",
+                  marginBottom: "0.5rem",
+                  flexWrap: "nowrap",
+                }}
+              >
+                {guess.characters.map((char, j) => {
+                  const tile = state.gridTiles[i][j];
+                  const color =
+                    tile === "GREEN"
+                      ? "#2f6f3a"
+                      : tile === "YELLOW"
+                        ? "#7a6a2b"
+                        : "#555";
+
+                  return (
+                    <div
+                      key={j}
+                      title={char}
+                      style={{
+                        width: 64,
+                        height: 64,
+                        borderRadius: 6,
+                        border: "1px solid #444",
+                        background: color,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: 0,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <img
+                        src={CHARACTER_DATA[char].iconUrl}
+                        alt={char}
+                        style={{
+                          width: 56,
+                          height: 56,
+                          objectFit: "contain",
+                          display: "block",
+                          margin: "0 auto",
+                          pointerEvents: "none",
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

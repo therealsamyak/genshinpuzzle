@@ -1,0 +1,71 @@
+import { Link, useLocation } from "react-router-dom";
+
+type Props = {
+  title?: string;
+  statusText?: string;
+  statusColor?: string;
+};
+
+export default function TopTabs({
+  title = "Genshin Dummy Guesser",
+  statusText,
+  statusColor,
+}: Props) {
+  const { pathname } = useLocation();
+
+  const isSubmit = pathname === "/submit";
+  const isGame = !isSubmit; // with HashRouter, pathname will be "/" or "/submit"
+
+  const tabStyle = (active: boolean): React.CSSProperties => ({
+    width: 110,
+    height: active ? 40 : 35, // active looks lower while still touching top
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 700,
+    fontSize: "0.95rem",
+    textDecoration: "none",
+    color: active ? "#fff" : "#cfcfcf",
+    background: active ? "#2a2a2a" : "#1f1f1f",
+    borderBottom: "1px solid #444",
+    borderLeft: "1px solid #444",
+    borderRight: "1px solid #444",
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  });
+
+  return (
+    <div style={{ marginBottom: 32, marginLeft: 32 }}>
+      <div style={{ display: "flex", gap: 32, alignItems: "flex-start" }}>
+        <Link to="/" style={{ textDecoration: "none", color: "inherit" }}>
+          <h2 style={{ margin: 0 }}>{title}</h2>
+        </Link>
+
+        <div style={{ display: "flex", gap: 12 }}>
+          <Link to="/" style={tabStyle(isGame)}>
+            Game
+          </Link>
+          <Link to="/submit" style={tabStyle(isSubmit)}>
+            Submit
+          </Link>
+        </div>
+
+        {statusText && (
+          <div
+            style={{
+              flex: 1,
+              textAlign: "center",
+              fontSize: "1.4rem",
+              fontWeight: 700,
+              color: statusColor,
+            }}
+          >
+            {statusText}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
