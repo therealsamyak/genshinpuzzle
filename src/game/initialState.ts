@@ -17,7 +17,7 @@ export const initialState: GameState = {
   },
   guessesSoFar: [],
   gridTiles: Array.from({ length: 6 }, () => Array<TileState>(4).fill("GRAY")),
-  livesRemaining: 6,
+  livesRemaining: 5,
   clueState: {
     strongestHitUnlocked: false,
     totalDpsUnlocked: false,

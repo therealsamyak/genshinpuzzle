@@ -1,12 +1,11 @@
-import { useState } from "react";
-import type { GameState, Guess, Element} from "../game/types";
+import { useState, useEffect, useCallback } from "react";
+import type { GameState, Guess, Element } from "../game/types";
 import { initialState } from "../game/initialState";
 import { makeGuess } from "../game/gameController";
 import { CHARACTER_DATA } from "../game/characters";
 
-
 export default function DailyPuzzle() {
-    const ELEMENTS: Element[] = [
+  const ELEMENTS: Element[] = [
     "Pyro",
     "Hydro",
     "Electro",
@@ -16,15 +15,19 @@ export default function DailyPuzzle() {
     "Geo",
   ];
 
-  const [activeElements, setActiveElements] = useState<Record<Element, boolean>>(
-    () =>
-      ELEMENTS.reduce((acc, el) => {
+  const [activeElements, setActiveElements] = useState<
+    Record<Element, boolean>
+  >(() =>
+    ELEMENTS.reduce(
+      (acc, el) => {
         acc[el] = true;
         return acc;
-      }, {} as Record<Element, boolean>)
+      },
+      {} as Record<Element, boolean>,
+    ),
   );
 
-    const toggleElement = (el: Element) => {
+  const toggleElement = (el: Element) => {
     setActiveElements((prev) => ({
       ...prev,
       [el]: !prev[el],
@@ -33,22 +36,27 @@ export default function DailyPuzzle() {
 
   const enableAllElements = () => {
     setActiveElements(
-      ELEMENTS.reduce((acc, el) => {
-        acc[el] = true;
-        return acc;
-      }, {} as Record<Element, boolean>)
+      ELEMENTS.reduce(
+        (acc, el) => {
+          acc[el] = true;
+          return acc;
+        },
+        {} as Record<Element, boolean>,
+      ),
     );
   };
 
   const disableAllElements = () => {
     setActiveElements(
-      ELEMENTS.reduce((acc, el) => {
-        acc[el] = false;
-        return acc;
-      }, {} as Record<Element, boolean>)
+      ELEMENTS.reduce(
+        (acc, el) => {
+          acc[el] = false;
+          return acc;
+        },
+        {} as Record<Element, boolean>,
+      ),
     );
   };
-
 
   const [state, setState] = useState<GameState>(initialState);
   const [preview, setPreview] = useState<string[]>([]);
@@ -59,12 +67,15 @@ export default function DailyPuzzle() {
 
   const isGameOver = state.isWin || state.isOver;
 
+  const answerPreview = state.puzzle.team.map((c: any) => c.name);
+  const displaySlots = isGameOver ? answerPreview : preview;
+
   // Flatten guessed characters
   const guessedCharacters = state.guessesSoFar.flatMap((g) => g.characters);
 
   // Characters that were ever GREEN
   const correctCharacters = state.guessesSoFar.flatMap((g, i) =>
-    g.characters.filter((_, j) => state.gridTiles[i][j] === "GREEN")
+    g.characters.filter((_, j) => state.gridTiles[i][j] === "GREEN"),
   );
 
   // ---- Preview controls ----
@@ -77,17 +88,35 @@ export default function DailyPuzzle() {
     setPreview((prev) => [...prev, name]);
   };
 
-
-  const removeLastPreview = () => {
+  const removeLastPreview = useCallback(() => {
     setPreview((prev) => prev.slice(0, -1));
-  };
+  }, []);
 
-  const submitGuess = () => {
+  const submitGuess = useCallback(() => {
     if (preview.length !== 4 || isGameOver) return;
     const guess: Guess = { characters: preview };
     setState(makeGuess(state, guess));
     setPreview([]);
-  };
+  }, [preview, isGameOver, state]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (isGameOver) return;
+
+      if (e.key === "Backspace") {
+        e.preventDefault();
+        removeLastPreview();
+      }
+
+      if (e.key === "Enter") {
+        e.preventDefault();
+        submitGuess();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isGameOver, removeLastPreview, submitGuess]);
 
   // ---- Hint reveal ----
 
@@ -108,7 +137,31 @@ export default function DailyPuzzle() {
 
   return (
     <div style={{ padding: "1rem" }}>
-      <h2>Daily Puzzle</h2>
+      {/* Title & Game Over */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          marginBottom: "0.5rem",
+        }}
+      >
+        <h2 style={{ margin: 0 }}>Genshin Dummy Guesser</h2>
+
+        {isGameOver && (
+          <div
+            style={{
+              flex: 1,
+              textAlign: "center",
+              fontSize: "1.4rem",
+              fontWeight: 700,
+              color: state.isWin ? "lightgreen" : "#ff6b6b",
+            }}
+          >
+            {state.isWin ? "You solved the puzzle" : "Game Over"}
+          </div>
+        )}
+      </div>
 
       {/* ================= MAIN LAYOUT ================= */}
       <div
@@ -117,7 +170,7 @@ export default function DailyPuzzle() {
           gap: "2rem",
           minHeight: "100vh",
           justifyContent: "flex-start", // ✅ top (main axis)
-          alignItems: "stretch",        // ✅ normal
+          alignItems: "stretch", // ✅ normal
         }}
       >
         {/* ============== LEFT SIDE ============== */}
@@ -131,13 +184,14 @@ export default function DailyPuzzle() {
               marginBottom: "1rem",
             }}
           >
+            {/* Character Select */}
             {[0, 1, 2, 3].map((i) => {
-              const char = preview[i];
+              const char = displaySlots[i];
 
               return (
                 <div
                   key={i}
-                  onClick={() => char && removePreviewAt(i)}
+                  onClick={() => !isGameOver && char && removePreviewAt(i)}
                   style={{
                     width: 72,
                     height: 72,
@@ -241,7 +295,6 @@ export default function DailyPuzzle() {
             <button onClick={enableAllElements}>All</button>
           </div>
 
-
           {/* Character Grid */}
           <div
             style={{
@@ -254,36 +307,123 @@ export default function DailyPuzzle() {
             {Object.entries(CHARACTER_DATA)
               .filter(([_, data]) => activeElements[data.element as Element])
               .map(([name]) => (
-              <button
-                key={name}
-                onClick={() => addToPreview(name)}
-                disabled={isGameOver}
-                style={{
-                  width: 64,
-                  height: 64,
-                  padding: 4,
-                  borderRadius: 6,
-                  border: "1px solid #444",
-                  background: getGridBg(name),
-                  cursor: "pointer",
-                }}
-              >
-                <img
-                  src={CHARACTER_DATA[name].iconUrl}
-                  alt={name}
+                <button
+                  key={name}
+                  onClick={() => addToPreview(name)}
+                  disabled={isGameOver}
                   style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "contain",
+                    width: 64,
+                    height: 64,
+                    padding: 4,
+                    borderRadius: 6,
+                    border: "1px solid #444",
+                    background: getGridBg(name),
+                    cursor: "pointer",
                   }}
-                />
-              </button>
-            ))}
+                >
+                  <img
+                    src={CHARACTER_DATA[name].iconUrl}
+                    alt={name}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                    }}
+                  />
+                </button>
+              ))}
           </div>
         </div>
 
         {/* ============== RIGHT SIDE ============== */}
         <div style={{ width: "360px", flexShrink: 0 }}>
+          {/* Hints */}
+          <h3 style={{ marginTop: "1.5rem" }}>Hints</h3>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              columnGap: 12,
+              rowGap: 12,
+              alignItems: "center",
+            }}
+          >
+            {/* Strongest Hit */}
+            <button
+              style={{ width: "100%" }}
+              disabled={
+                !state.clueState.strongestHitUnlocked ||
+                state.clueState.strongestHitRevealed
+              }
+              onClick={() => revealHint("strongestHit")}
+            >
+              Reveal Strongest Hit
+            </button>
+
+            <div style={{ minHeight: 22, opacity: 0.9 }}>
+              {state.clueState.strongestHitRevealed
+                ? state.puzzle.strongestHit
+                : ""}
+            </div>
+
+            {/* Total DPS */}
+            <button
+              style={{ width: "100%" }}
+              disabled={
+                !state.clueState.totalDpsUnlocked ||
+                state.clueState.totalDpsRevealed
+              }
+              onClick={() => revealHint("totalDps")}
+            >
+              Reveal Total DPS
+            </button>
+
+            <div style={{ minHeight: 22, opacity: 0.9 }}>
+              {state.clueState.totalDpsRevealed ? state.puzzle.totalDps : ""}
+            </div>
+
+            {/* Elements */}
+            <button
+              style={{ width: "100%" }}
+              disabled={
+                !state.clueState.elementsUnlocked ||
+                state.clueState.elementsRevealed
+              }
+              onClick={() => revealHint("elements")}
+            >
+              Reveal Elements
+            </button>
+
+            <div
+              style={{
+                minHeight: 22,
+                opacity: 0.9,
+                display: "flex",
+                gap: 6,
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              {state.clueState.elementsRevealed
+                ? state.puzzle.team.map((c, idx) => (
+                    <img
+                      key={`${c.element}-${idx}`}
+                      src={`/genshinpuzzle/icons/elements/${c.element}_Icon.png`}
+                      alt={c.element}
+                      title={c.element}
+                      style={{
+                        width: 22,
+                        height: 22,
+                        objectFit: "contain",
+                        display: "block",
+                      }}
+                    />
+                  ))
+                : ""}
+            </div>
+          </div>
+
           {/* Guesses */}
           <h3>Guesses</h3>
           {state.guessesSoFar.map((guess, i) => (
@@ -293,6 +433,7 @@ export default function DailyPuzzle() {
                 display: "flex",
                 gap: "8px",
                 marginBottom: "0.5rem",
+                flexWrap: "nowrap",
               }}
             >
               {guess.characters.map((char, j) => {
@@ -301,92 +442,45 @@ export default function DailyPuzzle() {
                   tile === "GREEN"
                     ? "#2f6f3a"
                     : tile === "YELLOW"
-                    ? "#7a6a2b"
-                    : "#555";
+                      ? "#7a6a2b"
+                      : "#555";
 
                 return (
                   <div
                     key={j}
+                    title={char}
                     style={{
-                      flex: 1,
-                      background: color,
+                      width: 64,
+                      height: 64,
                       borderRadius: 6,
+                      border: "1px solid #444",
+                      background: color,
                       display: "flex",
                       alignItems: "center",
-                      gap: "6px",
-                      padding: "6px",
+                      justifyContent: "center",
+                      padding: 0,
+                      flexShrink: 0,
                     }}
                   >
                     <img
                       src={CHARACTER_DATA[char].iconUrl}
                       alt={char}
-                      style={{ width: 24, height: 24 }}
+                      style={{
+                        width: 56,
+                        height: 56,
+                        objectFit: "contain",
+                        display: "block",
+                        margin: "0 auto",
+                        pointerEvents: "none",
+                      }}
                     />
-                    <span>{char}</span>
                   </div>
                 );
               })}
             </div>
           ))}
-
-          {/* Hints */}
-          <h3 style={{ marginTop: "1.5rem" }}>Hints</h3>
-
-          <button
-            disabled={
-              !state.clueState.strongestHitUnlocked ||
-              state.clueState.strongestHitRevealed
-            }
-            onClick={() => revealHint("strongestHit")}
-          >
-            Reveal Strongest Hit
-          </button>
-
-          {state.clueState.strongestHitRevealed && (
-            <div>Strongest Hit: {state.puzzle.strongestHit}</div>
-          )}
-
-          <button
-            disabled={
-              !state.clueState.totalDpsUnlocked ||
-              state.clueState.totalDpsRevealed
-            }
-            onClick={() => revealHint("totalDps")}
-          >
-            Reveal Total DPS
-          </button>
-
-          {state.clueState.totalDpsRevealed && (
-            <div>Total DPS: {state.puzzle.totalDps}</div>
-          )}
-
-          <button
-            disabled={
-              !state.clueState.elementsUnlocked ||
-              state.clueState.elementsRevealed
-            }
-            onClick={() => revealHint("elements")}
-          >
-            Reveal Elements
-          </button>
-
-          {state.clueState.elementsRevealed && (
-            <div>
-              Elements: {state.puzzle.team.map((c) => c.element).join(", ")}
-            </div>
-          )}
         </div>
       </div>
-
-      {/* Game Status */}
-      {state.isWin && (
-        <h3 style={{ color: "lightgreen", textAlign: "center" }}>
-          🎉 You solved the puzzle!
-        </h3>
-      )}
-      {state.isOver && !state.isWin && (
-        <h3 style={{ color: "#ff6b6b", textAlign: "center" }}>Game Over</h3>
-      )}
     </div>
   );
 }
