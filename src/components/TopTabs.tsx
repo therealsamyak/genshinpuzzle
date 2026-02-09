@@ -42,7 +42,6 @@ export default function TopTabs({
         <Link to="/" style={{ textDecoration: "none", color: "inherit" }}>
           <h2 style={{ margin: 0 }}>{title}</h2>
         </Link>
-
         <div style={{ display: "flex", gap: 12 }}>
           <Link to="/" style={tabStyle(isGame)}>
             Game
@@ -50,6 +49,18 @@ export default function TopTabs({
           <Link to="/submit" style={tabStyle(isSubmit)}>
             Submit
           </Link>
+        </div>
+        <div style={{ marginTop: 6, fontSize: 12, opacity: 0.65 }}>
+          Made by{" "}
+          <a
+            href="https://www.youtube.com/c/Watchful"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "inherit", textDecoration: "underline" }}
+          >
+            Watchful
+          </a>
+          , Version 0.8
         </div>
 
         {statusText && (
