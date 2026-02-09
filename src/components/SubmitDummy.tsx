@@ -749,6 +749,11 @@ export default function SubmitDummy() {
                   both numbers.
                 </div>
               )}
+              <div style={{ marginBottom: 12, opacity: 0.9 }}>
+                Currently there is no functionality to remove or edit entries
+                you submissions, but in the future you will be able to use the
+                code given after submission to remove them.
+              </div>
             </div>
           </div>
         </div>
