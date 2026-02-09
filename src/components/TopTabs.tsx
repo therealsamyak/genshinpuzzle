@@ -60,7 +60,18 @@ export default function TopTabs({
           >
             Watchful
           </a>
-          , Version 0.8
+          <text> | Version 0.8</text>
+          <br></br>
+          <text>Conceptualised by </text>
+          <a
+            href="https://www.twitch.tv/zajef77"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "inherit", textDecoration: "underline" }}
+          >
+            Zajef77
+          </a>
+          <text> and Virus34</text>
         </div>
 
         {statusText && (
