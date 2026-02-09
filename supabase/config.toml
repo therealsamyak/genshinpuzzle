@@ -8,3 +8,8 @@ entrypoint = "./functions/create_dummy_submission/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/ping/index.ts"
+
+[functions.get_random_puzzle]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/get_random_puzzle/index.ts"

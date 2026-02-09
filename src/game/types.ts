@@ -23,6 +23,8 @@ export interface Puzzle {
   strongestHit: number;
   totalDps: number;
   team: TeamCharacter[];
+  constellations: ("Hidden" | "C0" | "C1" | "C2" | "C3" | "C4" | "C5" | "C6")[];
+  refinements: ("Hidden" | "R0" | "R1" | "R2" | "R3" | "R4" | "R5")[];
 }
 
 export interface Guess {
@@ -35,9 +37,12 @@ export interface ClueState {
   strongestHitUnlocked: boolean;
   totalDpsUnlocked: boolean;
   elementsUnlocked: boolean;
+  constellationsRefinementsUnlocked: boolean;
+
   strongestHitRevealed: boolean;
   totalDpsRevealed: boolean;
   elementsRevealed: boolean;
+  constellationsRefinementsRevealed: boolean;
 }
 
 export interface GameState {

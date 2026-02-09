@@ -3,6 +3,32 @@ import TopTabs from "./TopTabs";
 import type { Element } from "../game/types";
 import { CHARACTER_DATA } from "../game/characters";
 
+type Constellation = "Hidden" | "C0" | "C1" | "C2" | "C3" | "C4" | "C5" | "C6";
+type Refinement = "Hidden" | "R0" | "R1" | "R2" | "R3" | "R4" | "R5";
+
+const CONSTELLATION_OPTIONS: Constellation[] = [
+  "Hidden",
+  "C0",
+  "C1",
+  "C2",
+  "C3",
+  "C4",
+  "C5",
+  "C6",
+];
+const REFINEMENT_OPTIONS: Refinement[] = [
+  "Hidden",
+  "R0",
+  "R1",
+  "R2",
+  "R3",
+  "R4",
+  "R5",
+];
+
+const DEFAULT_C: Constellation = "Hidden";
+const DEFAULT_R: Refinement = "Hidden";
+
 export default function SubmitDummy() {
   const ELEMENTS: Element[] = [
     "Pyro",
@@ -27,21 +53,95 @@ export default function SubmitDummy() {
 
   /* ================= TEAM SELECTION ================= */
 
-  const [preview, setPreview] = useState<string[]>([]);
+  const [preview, setPreview] = useState<(string | null)[]>([
+    null,
+    null,
+    null,
+    null,
+  ]);
+  const [constellations, setConstellations] = useState<Constellation[]>([
+    DEFAULT_C,
+    DEFAULT_C,
+    DEFAULT_C,
+    DEFAULT_C,
+  ]);
+  const [refinements, setRefinements] = useState<Refinement[]>([
+    DEFAULT_R,
+    DEFAULT_R,
+    DEFAULT_R,
+    DEFAULT_R,
+  ]);
 
   const addToPreview = (name: string) => {
-    if (preview.length >= 4) return;
-    if (preview.includes(name)) return;
-    setPreview((prev) => [...prev, name]);
+    // if already selected, remove it (grid toggle)
+    const existingIndex = preview.findIndex((c) => c === name);
+    if (existingIndex !== -1) {
+      removePreviewAt(existingIndex);
+      return;
+    }
+
+    const emptyIndex = preview.findIndex((c) => c == null);
+    if (emptyIndex === -1) return; // full
+
+    setPreview((prev) => {
+      const next = [...prev];
+      next[emptyIndex] = name;
+      return next;
+    });
+
+    // defaults already Hidden; nothing else needed on add
   };
 
   const removePreviewAt = (index: number) => {
-    setPreview((prev) => prev.filter((_, i) => i !== index));
+    setPreview((prev) => {
+      const next = [...prev];
+      next[index] = null;
+      return next;
+    });
+
+    setConstellations((prev) => {
+      const next = [...prev];
+      next[index] = DEFAULT_C;
+      return next;
+    });
+    setRefinements((prev) => {
+      const next = [...prev];
+      next[index] = DEFAULT_R;
+      return next;
+    });
   };
 
   const removeLastPreview = () => {
-    setPreview((prev) => prev.slice(0, -1));
+    const lastIndex = [...preview]
+      .map((c, i) => (c ? i : -1))
+      .filter((i) => i !== -1)
+      .pop();
+    if (lastIndex == null) return;
+    removePreviewAt(lastIndex);
   };
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Backspace") return;
+
+      const el = e.target as HTMLElement | null;
+      const tag = el?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return;
+
+      e.preventDefault();
+
+      const lastIndex = [...preview]
+        .map((c, i) => (c ? i : -1))
+        .filter((i) => i !== -1)
+        .pop();
+
+      if (lastIndex == null) return;
+      removePreviewAt(lastIndex);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [preview]);
 
   /* ================= File Picking ================= */
 
@@ -93,7 +193,20 @@ export default function SubmitDummy() {
       form.append("team2", preview[2] ?? "");
       form.append("team3", preview[3] ?? "");
 
-      const elements = preview.map((name) => CHARACTER_DATA[name].element);
+      form.append("c0", constellations[0] ?? DEFAULT_C);
+      form.append("c1", constellations[1] ?? DEFAULT_C);
+      form.append("c2", constellations[2] ?? DEFAULT_C);
+      form.append("c3", constellations[3] ?? DEFAULT_C);
+
+      form.append("r0", refinements[0] ?? DEFAULT_R);
+      form.append("r1", refinements[1] ?? DEFAULT_R);
+      form.append("r2", refinements[2] ?? DEFAULT_R);
+      form.append("r3", refinements[3] ?? DEFAULT_R);
+
+      const elements = preview.map((name) =>
+        name ? CHARACTER_DATA[name].element : "None",
+      );
+
       form.append("elements", JSON.stringify(elements));
 
       form.append("strongestHit", String(Number(strongestHit)));
@@ -173,21 +286,44 @@ export default function SubmitDummy() {
 
   /* ================= INPUTS ================= */
 
+  const HINT_MIN = 1_000;
+  const HINT_MAX = 10_000_000; // 100,000 × 100
+  const HINT_MAX_DIGITS = 8; // 10,000,000
+
+  const sanitizeDigits = (s: string) => s.replace(/[^\d]/g, "");
+  const sanitizeUid = (s: string) => s.replace(/[^\d]/g, "").slice(0, 10);
+
+  const parseHint = (raw: string) => {
+    if (!raw) return { ok: false, n: 0, err: "Required" };
+    if (!/^\d+$/.test(raw)) return { ok: false, n: 0, err: "Numbers only" };
+
+    const n = Number(raw);
+    if (!Number.isSafeInteger(n)) return { ok: false, n: 0, err: "Too large" };
+
+    if (n < HINT_MIN || n > HINT_MAX) {
+      return {
+        ok: false,
+        n,
+        err: `Must be ${HINT_MIN.toLocaleString()}–${HINT_MAX.toLocaleString()}`,
+      };
+    }
+
+    return { ok: true, n, err: null as string | null };
+  };
+
   const [strongestHit, setStrongestHit] = useState("");
   const [totalDps, setTotalDps] = useState("");
   const [genshinUid, setGenshinUid] = useState("");
 
-  const strongestHitNum = Number(strongestHit);
-  const totalDpsNum = Number(totalDps);
+  const strongest = parseHint(strongestHit);
+  const dps = parseHint(totalDps);
 
   const isValid =
     !!file &&
     !fileError &&
-    preview.length === 4 &&
-    Number.isFinite(strongestHitNum) &&
-    strongestHitNum > 0 &&
-    Number.isFinite(totalDpsNum) &&
-    totalDpsNum > 0;
+    preview.every((c) => typeof c === "string" && c.length > 0) &&
+    strongest.ok &&
+    dps.ok;
 
   return (
     <div style={{ minHeight: "100vh" }}>
@@ -204,44 +340,131 @@ export default function SubmitDummy() {
           {/* ============== LEFT SIDE ============== */}
           <div style={{ flex: 1, minWidth: 760, maxWidth: 760 }}>
             {/* Preview Row */}
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>Team</div>
-            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-              {[0, 1, 2, 3].map((i) => {
-                const char = preview[i];
 
-                return (
-                  <div
-                    key={i}
-                    onClick={() => char && removePreviewAt(i)}
-                    style={{
-                      width: 72,
-                      height: 72,
-                      border: "2px solid #444",
-                      borderRadius: 6,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: "#1f1f1f",
-                      cursor: char ? "pointer" : "default",
-                      opacity: char ? 1 : 0.6,
-                    }}
-                    title={char ? `${char} (click to remove)` : undefined}
-                  >
-                    {char && (
-                      <img
-                        src={CHARACTER_DATA[char].iconUrl}
-                        alt={char}
-                        style={{ width: 56, height: 56, pointerEvents: "none" }}
-                      />
-                    )}
-                  </div>
-                );
-              })}
+            {/* Team (centered block) */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                marginBottom: 16,
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: 700,
+                  marginBottom: 12,
+                  textAlign: "center",
+                }}
+              >
+                Team
+              </div>
+
+              {/* Slots: portrait + C + R (each column aligned) */}
+              <div
+                style={{ display: "flex", gap: 12, justifyContent: "center" }}
+              >
+                {[0, 1, 2, 3].map((i) => {
+                  const char = preview[i];
+                  const hasChar = !!char;
+
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        width: 72, // matches portrait box width
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      {/* Portrait slot (UNCHANGED styling) */}
+                      <div
+                        onClick={() => char && removePreviewAt(i)}
+                        style={{
+                          width: 72,
+                          height: 72,
+                          border: "2px solid #444",
+                          borderRadius: 6,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: "#1f1f1f",
+                          cursor: char ? "pointer" : "default",
+                          opacity: char ? 1 : 0.6,
+                        }}
+                        title={char ? `${char} (click to remove)` : undefined}
+                      >
+                        {char && (
+                          <img
+                            src={CHARACTER_DATA[char].iconUrl}
+                            alt={char}
+                            style={{
+                              width: 56,
+                              height: 56,
+                              pointerEvents: "none",
+                            }}
+                          />
+                        )}
+                      </div>
+
+                      {/* Constellation (directly under portrait) */}
+                      <select
+                        disabled={!hasChar}
+                        value={constellations[i] ?? DEFAULT_C}
+                        onChange={(e) => {
+                          const v = e.target.value as Constellation;
+                          setConstellations((prev) => {
+                            const next = [...prev];
+                            next[i] = v;
+                            return next;
+                          });
+                        }}
+                        style={{ padding: 6, width: 72 }}
+                        title="Constellation"
+                      >
+                        {CONSTELLATION_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* Refinement (directly under constellation) */}
+                      <select
+                        disabled={!hasChar}
+                        value={refinements[i] ?? DEFAULT_R}
+                        onChange={(e) => {
+                          const v = e.target.value as Refinement;
+                          setRefinements((prev) => {
+                            const next = [...prev];
+                            next[i] = v;
+                            return next;
+                          });
+                        }}
+                        style={{ padding: 6, width: 72 }}
+                        title="Refinement"
+                      >
+                        {REFINEMENT_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={removeLastPreview}
+                disabled={!preview.some((c) => c)}
+                style={{ marginTop: 12 }}
+              >
+                Backspace
+              </button>
             </div>
-
-            <button onClick={removeLastPreview} disabled={!preview.length}>
-              Backspace
-            </button>
 
             {/* Element Filters (MATCH DAILY) */}
             <div
@@ -372,7 +595,10 @@ export default function SubmitDummy() {
             <div style={{ marginBottom: 12, opacity: 0.9 }}>
               Upload a PNG screenshot (≤ 1MB) and select the 4-character team
               shown. Please edit the image to hide the DPS, characters and
-              strongest hit as shown.
+              strongest hit as shown. <br></br>For Constellations and
+              Refinements, if the value is "Hidden" it will not be shown to the
+              player, only include this if you think these values are abnomal
+              and important for the player to guess the team.
               <div style={{ marginTop: 10 }}>
                 <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>
                   Example
@@ -443,29 +669,58 @@ export default function SubmitDummy() {
               <div style={{ fontWeight: 700 }}>Strongest Hit</div>
               <input
                 value={strongestHit}
-                onChange={(e) => setStrongestHit(e.target.value)}
+                onChange={(e) =>
+                  setStrongestHit(
+                    sanitizeDigits(e.target.value).slice(0, HINT_MAX_DIGITS),
+                  )
+                }
                 inputMode="numeric"
-                placeholder="e.g. 5000"
-                style={{ padding: 8, width: "100%" }}
+                pattern="\d*"
+                placeholder="e.g. 100000"
+                aria-invalid={!strongest.ok}
+                style={{
+                  padding: 8,
+                  width: "100%",
+                  border: strongest.ok ? "1px solid #444" : "1px solid #ff6b6b",
+                }}
               />
 
               <div style={{ fontWeight: 700 }}>Total DPS</div>
               <input
                 value={totalDps}
-                onChange={(e) => setTotalDps(e.target.value)}
+                onChange={(e) =>
+                  setTotalDps(
+                    sanitizeDigits(e.target.value).slice(0, HINT_MAX_DIGITS),
+                  )
+                }
                 inputMode="numeric"
-                placeholder="e.g. 20000"
-                style={{ padding: 8, width: "100%" }}
+                pattern="\d*"
+                placeholder="e.g. 100000"
+                aria-invalid={!dps.ok}
+                style={{
+                  padding: 8,
+                  width: "100%",
+                  border: dps.ok ? "1px solid #444" : "1px solid #ff6b6b",
+                }}
               />
 
               <div style={{ fontWeight: 700 }}>Genshin UID</div>
               <input
                 value={genshinUid}
-                onChange={(e) => setGenshinUid(e.target.value)}
+                onChange={(e) => setGenshinUid(sanitizeUid(e.target.value))}
+                inputMode="numeric"
+                pattern="\d*"
                 placeholder="optional"
                 style={{ padding: 8, width: "100%" }}
               />
             </div>
+
+            {(!strongest.ok || !dps.ok) && (
+              <div style={{ marginTop: 8, color: "#ff6b6b", fontSize: 12 }}>
+                {!strongest.ok && <div>Strongest Hit: {strongest.err}</div>}
+                {!dps.ok && <div>Total DPS: {dps.err}</div>}
+              </div>
+            )}
 
             <div style={{ marginTop: 16 }}>
               <button

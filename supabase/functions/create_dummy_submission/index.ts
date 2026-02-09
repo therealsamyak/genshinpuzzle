@@ -73,6 +73,16 @@ serve(async (req) => {
     const team2 = form.get("team2");
     const team3 = form.get("team3");
 
+    const c0 = form.get("c0");
+    const c1 = form.get("c1");
+    const c2 = form.get("c2");
+    const c3 = form.get("c3");
+
+    const r0 = form.get("r0");
+    const r1 = form.get("r1");
+    const r2 = form.get("r2");
+    const r3 = form.get("r3");
+
     const strongestHitRaw = form.get("strongestHit");
     const totalDpsRaw = form.get("totalDps");
     const uidRaw = form.get("genshinUid");
@@ -132,6 +142,26 @@ serve(async (req) => {
         headers: corsHeaders,
       });
     }
+
+    const C_ALLOWED = new Set([
+      "Hidden",
+      "C0",
+      "C1",
+      "C2",
+      "C3",
+      "C4",
+      "C5",
+      "C6",
+    ]);
+    const R_ALLOWED = new Set(["Hidden", "R0", "R1", "R2", "R3", "R4", "R5"]);
+
+    const constellations = [c0, c1, c2, c3].map((v) =>
+      typeof v === "string" && C_ALLOWED.has(v) ? v : "Hidden"
+    );
+
+    const refinements = [r0, r1, r2, r3].map((v) =>
+      typeof v === "string" && R_ALLOWED.has(v) ? v : "Hidden"
+    );
 
     const strongest_hit = Number(strongestHitRaw);
     const total_dps = Number(totalDpsRaw);
@@ -202,6 +232,8 @@ serve(async (req) => {
         total_dps,
         genshin_uid,
         elements: elementsTyped,
+        constellations,
+        refinements,
       })
       .select("id")
       .single();

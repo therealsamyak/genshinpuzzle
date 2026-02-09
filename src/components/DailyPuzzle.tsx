@@ -59,6 +59,71 @@ export default function DailyPuzzle() {
   };
 
   const [state, setState] = useState<GameState>(initialState);
+
+  //Random Puzzle
+  const [puzzleImageUrl, setPuzzleImageUrl] = useState<string | null>(null);
+
+  console.log(import.meta.env.VITE_SUPABASE_ANON_KEY);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get_random_puzzle`,
+          {
+            method: "GET",
+            headers: {
+              apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+          },
+        );
+
+        if (!res.ok) throw new Error(await res.text());
+        const row = await res.json();
+        setPuzzleImageUrl(row.image_url ?? null);
+
+        const teamNames: string[] = row.team ?? [];
+        const elements: string[] = row.elements ?? [];
+
+        setState({
+          ...initialState,
+          puzzle: {
+            ...initialState.puzzle,
+            id: String(row.id),
+            strongestHit: Number(row.strongest_hit),
+            totalDps: Number(row.total_dps),
+            team: teamNames.map((name: string, i: number) => ({
+              name,
+              element: (elements[i] ?? "None") as Element,
+              individualDps: 0,
+              damagePercentage: 0,
+            })),
+            constellations: row.constellations ?? [
+              "Hidden",
+              "Hidden",
+              "Hidden",
+              "Hidden",
+            ],
+            refinements: row.refinements ?? [
+              "Hidden",
+              "Hidden",
+              "Hidden",
+              "Hidden",
+            ],
+          },
+        });
+
+        setPreview([]);
+      } catch (e) {
+        console.error("Failed to load random puzzle:", e);
+      }
+    };
+
+    load();
+  }, []);
+
+  // Preview
   const [preview, setPreview] = useState<string[]>([]);
 
   const removePreviewAt = (index: number) => {
@@ -70,10 +135,7 @@ export default function DailyPuzzle() {
   const answerPreview = state.puzzle.team.map((c) => c.name);
   const displaySlots = isGameOver ? answerPreview : preview;
 
-  // Flatten guessed characters
-  const guessedCharacters = state.guessesSoFar.flatMap((g) => g.characters);
-
-  // Characters that were ever GREEN
+  // Characters that were ever GREEN / YELLOW (based on gridTiles)
   const correctCharacters = state.guessesSoFar.flatMap((g, i) =>
     g.characters.filter((_, j) => state.gridTiles[i][j] === "GREEN"),
   );
@@ -82,9 +144,14 @@ export default function DailyPuzzle() {
 
   const addToPreview = (name: string) => {
     if (isGameOver) return;
-    if (preview.length >= 4) return;
-    if (preview.includes(name)) return; // 👈 prevent duplicates
 
+    // toggle: if already selected, remove it
+    if (preview.includes(name)) {
+      setPreview((prev) => prev.filter((c) => c !== name));
+      return;
+    }
+
+    if (preview.length >= 4) return;
     setPreview((prev) => [...prev, name]);
   };
 
@@ -110,6 +177,8 @@ export default function DailyPuzzle() {
             strongestHitRevealed: true,
             totalDpsRevealed: true,
             elementsRevealed: true,
+            constellationsRefinementsUnlocked: true,
+            constellationsRefinementsRevealed: true,
           },
         }
       : next;
@@ -139,7 +208,13 @@ export default function DailyPuzzle() {
 
   // ---- Hint reveal ----
 
-  const revealHint = (hint: "strongestHit" | "totalDps" | "elements") => {
+  const revealHint = (
+    hint:
+      | "strongestHit"
+      | "totalDps"
+      | "elements"
+      | "constellationsRefinements",
+  ) => {
     setState((prev) => ({
       ...prev,
       clueState: { ...prev.clueState, [`${hint}Revealed`]: true },
@@ -150,7 +225,6 @@ export default function DailyPuzzle() {
 
   const getGridBg = (name: string) => {
     if (correctCharacters.includes(name)) return "#2f6f3a"; // green
-    if (guessedCharacters.includes(name)) return "#7a6a2b"; // yellow-ish
     return "#2a2a2a"; // neutral
   };
 
@@ -367,19 +441,62 @@ export default function DailyPuzzle() {
           </div>
 
           {/* ============== RIGHT SIDE ============== */}
-          <div style={{ width: "360px", flexShrink: 0 }}>
+          <div style={{ width: "480px", flexShrink: 0 }}>
+            {puzzleImageUrl && (
+              <div style={{ marginTop: "1rem", marginBottom: "0.75rem" }}>
+                <img
+                  src={puzzleImageUrl}
+                  alt="Puzzle"
+                  style={{
+                    width: "100%",
+                    border: "1px solid #444",
+                    borderRadius: 8,
+                    display: "block",
+                  }}
+                />
+              </div>
+            )}
+
             {/* Hints */}
             <h3 style={{ marginTop: "1.5rem" }}>Hints</h3>
-
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr",
+                gridTemplateColumns: "1fr 2fr",
                 columnGap: 12,
                 rowGap: 12,
                 alignItems: "center",
               }}
             >
+              {/* Constellations + Refinements */}
+              <button
+                style={{ width: "100%" }}
+                disabled={
+                  !state.clueState.constellationsRefinementsUnlocked ||
+                  state.clueState.constellationsRefinementsRevealed
+                }
+                onClick={() => revealHint("constellationsRefinements")}
+              >
+                Constellations & Refinements
+              </button>
+
+              <div style={{ minHeight: 22, opacity: 0.9 }}>
+                {state.clueState.constellationsRefinementsRevealed
+                  ? [0, 1, 2, 3]
+                      .map((i) => {
+                        const c = state.puzzle.constellations?.[i] ?? "Hidden";
+                        const r = state.puzzle.refinements?.[i] ?? "Hidden";
+
+                        const cShown = c !== "Hidden" ? c : "";
+                        const rShown = r !== "Hidden" ? r : "";
+
+                        if (!cShown && !rShown) return "Hidden";
+                        return `${cShown}${rShown}`; // e.g. C1R1, R1, C2
+                      })
+                      .join(" | ")
+                  : ""}
+              </div>
+
               {/* Strongest Hit */}
               <button
                 style={{ width: "100%" }}
@@ -389,7 +506,7 @@ export default function DailyPuzzle() {
                 }
                 onClick={() => revealHint("strongestHit")}
               >
-                Reveal Strongest Hit
+                Strongest Hit
               </button>
 
               <div style={{ minHeight: 22, opacity: 0.9 }}>
@@ -407,7 +524,7 @@ export default function DailyPuzzle() {
                 }
                 onClick={() => revealHint("totalDps")}
               >
-                Reveal Total DPS
+                Total DPS
               </button>
 
               <div style={{ minHeight: 22, opacity: 0.9 }}>
@@ -423,7 +540,7 @@ export default function DailyPuzzle() {
                 }
                 onClick={() => revealHint("elements")}
               >
-                Reveal Elements
+                Elements
               </button>
 
               <div

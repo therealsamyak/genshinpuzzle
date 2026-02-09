@@ -10,6 +10,8 @@ export const initialState: GameState = {
     damageTime: 120,
     strongestHit: 5000,
     totalDps: 20000,
+    constellations: ["Hidden", "Hidden", "Hidden", "Hidden"],
+    refinements: ["Hidden", "Hidden", "Hidden", "Hidden"],
     team: [
       {
         name: "Aino",
@@ -43,9 +45,12 @@ export const initialState: GameState = {
     strongestHitUnlocked: false,
     totalDpsUnlocked: false,
     elementsUnlocked: false,
+    constellationsRefinementsUnlocked: true,
+
     strongestHitRevealed: false,
     totalDpsRevealed: false,
     elementsRevealed: false,
+    constellationsRefinementsRevealed: false,
   },
   isWin: false,
   isOver: false,
