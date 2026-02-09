@@ -597,7 +597,7 @@ export default function SubmitDummy() {
               shown. Please edit the image to hide the DPS, characters and
               strongest hit as shown. <br></br>For Constellations and
               Refinements, if the value is "Hidden" it will not be shown to the
-              player, only include this if you think these values are abnomal
+              player, only include these if you think these values are abnormal
               and important for the player to guess the team.
               <div style={{ marginTop: 10 }}>
                 <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>
