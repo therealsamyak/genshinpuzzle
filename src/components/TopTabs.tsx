@@ -13,8 +13,9 @@ export default function TopTabs({
 }: Props) {
   const { pathname } = useLocation();
 
+  const isGame = pathname === "/";
   const isSubmit = pathname === "/submit";
-  const isGame = !isSubmit; // with HashRouter, pathname will be "/" or "/submit"
+  const isRoadmap = pathname === "/roadmap";
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
     width: 110,
@@ -49,7 +50,11 @@ export default function TopTabs({
           <Link to="/submit" style={tabStyle(isSubmit)}>
             Submit
           </Link>
+          <Link to="/roadmap" style={tabStyle(isRoadmap)}>
+            Roadmap
+          </Link>
         </div>
+
         <div style={{ marginTop: 6, fontSize: 12, opacity: 0.65 }}>
           Made by{" "}
           <a
