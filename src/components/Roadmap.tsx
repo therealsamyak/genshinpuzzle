@@ -11,12 +11,7 @@ export default function Roadmap() {
         <div style={{ whiteSpace: "pre-line", lineHeight: 1.6, opacity: 0.9 }}>
           {`High Priority (Next Work)
 
-- Give genshin credit
-- Refactor hint to be more relevant, as at the moment you can work out DPS,
-maybe simply having the damage % shown and not the damage numbers,
-and have them revealed alongside DPS? (need ideas)
-
-Daily Puzzle System (Requires more submissions)
+Daily Puzzle System
 
  - Ensure one daily puzzle per calendar day.
  - Randomly select from unused submissions.
@@ -30,6 +25,10 @@ Daily Puzzle System (Requires more submissions)
 - Add Endless Mode
 
 Gameplay / UX
+
+- Refactor hint to be more relevant, as at the moment you can work out DPS,
+maybe simply having the damage % shown and not the damage numbers,
+and have them revealed alongside DPS? (need ideas)
 
 - Allow deletion of past submissions (by submission ID).
 - Player Records
