@@ -67,7 +67,7 @@ serve(async (req) => {
     const { data, error } = await admin
         .from("dummy_submissions")
         .select(
-            "id, team, elements, strongest_hit, total_dps, image_path, constellations, refinements",
+            "id, team, elements, strongest_hit, total_dps, image_path, constellations, refinements, genshin_uid",
         )
         .order("id", { ascending: true })
         .range(offset, offset)

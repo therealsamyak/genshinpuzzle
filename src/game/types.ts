@@ -25,6 +25,7 @@ export interface Puzzle {
   team: TeamCharacter[];
   constellations: ("Hidden" | "C0" | "C1" | "C2" | "C3" | "C4" | "C5" | "C6")[];
   refinements: ("Hidden" | "R0" | "R1" | "R2" | "R3" | "R4" | "R5")[];
+  genshinUid?: string | null;
 }
 
 export interface Guess {

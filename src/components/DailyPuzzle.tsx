@@ -63,8 +63,6 @@ export default function DailyPuzzle() {
   //Random Puzzle
   const [puzzleImageUrl, setPuzzleImageUrl] = useState<string | null>(null);
 
-  console.log(import.meta.env.VITE_SUPABASE_ANON_KEY);
-
   useEffect(() => {
     const load = async () => {
       try {
@@ -111,6 +109,7 @@ export default function DailyPuzzle() {
               "Hidden",
               "Hidden",
             ],
+            genshinUid: row.genshin_uid ?? null,
           },
         });
 
@@ -456,7 +455,17 @@ export default function DailyPuzzle() {
                 />
               </div>
             )}
-
+            {state.puzzle.genshinUid && (
+              <div
+                style={{
+                  marginBottom: 12,
+                  fontSize: 13,
+                  opacity: 0.8,
+                }}
+              >
+                UID: {state.puzzle.genshinUid}
+              </div>
+            )}
             {/* Hints */}
             <h3 style={{ marginTop: "1.5rem" }}>Hints</h3>
             <div
@@ -571,7 +580,6 @@ export default function DailyPuzzle() {
                   : ""}
               </div>
             </div>
-
             {/* Guesses */}
             <h3>Guesses</h3>
             {state.guessesSoFar.map((guess, i) => (
