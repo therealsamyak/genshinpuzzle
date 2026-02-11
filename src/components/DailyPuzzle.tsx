@@ -582,6 +582,24 @@ export default function DailyPuzzle() {
             </div>
             {/* Guesses */}
             <h3>Guesses</h3>
+            <div
+              style={{
+                fontSize: 12,
+                opacity: 0.8,
+                marginBottom: 10,
+                lineHeight: 1.5,
+              }}
+            >
+              <span style={{ color: "#2f6f3a", fontWeight: 600 }}>Green</span> =
+              Correct character
+              {" | "}
+              <span style={{ color: "#7a6a2b", fontWeight: 600 }}>
+                Yellow
+              </span>{" "}
+              = Correct element
+              {" | "}Order does not matter
+            </div>
+
             {state.guessesSoFar.map((guess, i) => (
               <div
                 key={i}
