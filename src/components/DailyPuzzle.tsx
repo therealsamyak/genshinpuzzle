@@ -440,6 +440,7 @@ export default function DailyPuzzle() {
           </div>
 
           {/* ============== RIGHT SIDE ============== */}
+          {/* IMAGE */}
           <div style={{ width: "480px", flexShrink: 0 }}>
             {puzzleImageUrl && (
               <div style={{ marginTop: "1rem", marginBottom: "0.75rem" }}>
@@ -455,17 +456,32 @@ export default function DailyPuzzle() {
                 />
               </div>
             )}
+
+            {/* UID */}
             {state.puzzle.genshinUid && (
               <div
                 style={{
                   marginBottom: 12,
                   fontSize: 13,
-                  opacity: 0.8,
+                  opacity: 0.85,
                 }}
               >
-                UID: {state.puzzle.genshinUid}
+                UID:{" "}
+                <a
+                  href={`https://enka.network/u/${state.puzzle.genshinUid}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "inherit",
+                    textDecoration: "underline",
+                    fontWeight: "normal",
+                  }}
+                >
+                  {state.puzzle.genshinUid}
+                </a>
               </div>
             )}
+
             {/* Hints */}
             <h3 style={{ marginTop: "1.5rem" }}>Hints</h3>
             <div
