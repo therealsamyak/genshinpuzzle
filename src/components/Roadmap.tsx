@@ -11,23 +11,19 @@ export default function Roadmap() {
         <div style={{ whiteSpace: "pre-line", lineHeight: 1.6, opacity: 0.9 }}>
           {`High Priority (Next Work)
 
-- Player Records
-- Add Endless Mode
-
 Gameplay / UX
-
-- Refactor hint to be more relevant, as at the moment you can work out DPS,
-maybe simply having the damage % shown and not the damage numbers,
-and have them revealed alongside DPS? (need ideas)
 
 - Allow deletion of past submissions (by submission ID).
 
 Low Priority
 
-- Add donate button.
 - Making it look nicer! (Background?)
 
 Future (Explicitly Deferred)
+
+- Refactor hint to be more relevant, as at the moment you can work out DPS,
+maybe simply having the damage % shown and not the damage numbers,
+and have them revealed alongside DPS? (need ideas)
 
 - Weekly Cleanup images unused.
 - OCR number extraction from images.
