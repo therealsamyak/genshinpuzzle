@@ -344,8 +344,10 @@ export default function SubmitDummy() {
                       }}
                     >
                       {/* Portrait slot (UNCHANGED styling) */}
-                      <div
-                        onClick={() => char && removePreviewAt(i)}
+                      <button
+                        type="button"
+                        disabled={!char}
+                        onClick={() => removePreviewAt(i)}
                         style={{
                           width: 72,
                           height: 72,
@@ -357,6 +359,7 @@ export default function SubmitDummy() {
                           background: "#1f1f1f",
                           cursor: char ? "pointer" : "default",
                           opacity: char ? 1 : 0.6,
+                          padding: 0,
                         }}
                         title={char ? `${char} (click to remove)` : undefined}
                       >
@@ -371,7 +374,7 @@ export default function SubmitDummy() {
                             }}
                           />
                         )}
-                      </div>
+                      </button>
 
                       {/* Constellation (directly under portrait) */}
                       <select
