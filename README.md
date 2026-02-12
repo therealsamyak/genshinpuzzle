@@ -22,8 +22,7 @@ Deno is required for this project. See https://docs.deno.com/runtime/getting_sta
 
 ### Scripts
 
-Key scripts (use Deno tasks):
-
 - `deno task dev` - Start development server
 - `deno task build` - Build for production
-- `deno task run:scripts/generate_character_elements.ts` - Generate character element mappings from game data
+- `deno task check` - Check code formatting and linting
+- `deno task generate:elements` - Generate character element mappings from game data
