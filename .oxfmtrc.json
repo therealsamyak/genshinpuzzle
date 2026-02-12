@@ -7,5 +7,10 @@
   "useTabs": false,
   "tabWidth": 2,
   "endOfLine": "lf",
-  "ignorePatterns": ["dist", "node_modules", "supabase/functions/_shared/character_elements.ts"]
+  "ignorePatterns": [
+    "dist",
+    "node_modules",
+    "deno.lock",
+    "supabase/functions/_shared/character_elements.ts"
+  ]
 }
