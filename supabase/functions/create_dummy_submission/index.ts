@@ -15,8 +15,7 @@ const BUCKET = "submission-images";
 const corsHeaders = {
   "access-control-allow-origin": "*", // or your exact site origin
   "access-control-allow-methods": "POST, OPTIONS",
-  "access-control-allow-headers":
-    "content-type, apikey, authorization, x-client-info",
+  "access-control-allow-headers": "content-type, apikey, authorization, x-client-info",
 };
 
 serve(async (req) => {
@@ -143,24 +142,15 @@ serve(async (req) => {
       });
     }
 
-    const C_ALLOWED = new Set([
-      "Hidden",
-      "C0",
-      "C1",
-      "C2",
-      "C3",
-      "C4",
-      "C5",
-      "C6",
-    ]);
+    const C_ALLOWED = new Set(["Hidden", "C0", "C1", "C2", "C3", "C4", "C5", "C6"]);
     const R_ALLOWED = new Set(["Hidden", "R0", "R1", "R2", "R3", "R4", "R5"]);
 
     const constellations = [c0, c1, c2, c3].map((v) =>
-      typeof v === "string" && C_ALLOWED.has(v) ? v : "Hidden"
+      typeof v === "string" && C_ALLOWED.has(v) ? v : "Hidden",
     );
 
     const refinements = [r0, r1, r2, r3].map((v) =>
-      typeof v === "string" && R_ALLOWED.has(v) ? v : "Hidden"
+      typeof v === "string" && R_ALLOWED.has(v) ? v : "Hidden",
     );
 
     const strongest_hit = Number(strongestHitRaw);
@@ -178,9 +168,8 @@ serve(async (req) => {
       });
     }
 
-    const genshin_uid = typeof uidRaw === "string" && uidRaw.trim().length > 0
-      ? uidRaw.trim()
-      : null;
+    const genshin_uid =
+      typeof uidRaw === "string" && uidRaw.trim().length > 0 ? uidRaw.trim() : null;
 
     // SUPABASE_URL is available in the Functions runtime
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -193,8 +182,8 @@ serve(async (req) => {
 
     // Put your service role key in Function env vars as: SERVICE_ROLE_KEY
     // (avoid SUPABASE_* secret names)
-    const serviceKey = Deno.env.get("SERVICE_ROLE_KEY") ??
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const serviceKey =
+      Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!serviceKey) {
       return new Response("Missing SERVICE_ROLE_KEY", {
         status: 500,
@@ -255,14 +244,10 @@ serve(async (req) => {
     const path = `${submissionId}.png`;
 
     const arrayBuf = await file.arrayBuffer();
-    const { error: uploadErr } = await admin.storage.from(BUCKET).upload(
-      path,
-      arrayBuf,
-      {
-        contentType: "image/png",
-        upsert: false,
-      },
-    );
+    const { error: uploadErr } = await admin.storage.from(BUCKET).upload(path, arrayBuf, {
+      contentType: "image/png",
+      upsert: false,
+    });
 
     if (uploadErr) {
       await admin.from("dummy_submissions").delete().eq("id", submissionId);

@@ -32,9 +32,7 @@ export function evaluateGuess(guess: Guess, puzzleTeam: TeamCharacter[]): TileSt
     const guessedElement = CHARACTER_DATA[guessedChar]?.element;
     if (!guessedElement) continue;
 
-    const idx = puzzleTeam.findIndex(
-      (p, j) => !used[j] && p.element === guessedElement
-    );
+    const idx = puzzleTeam.findIndex((p, j) => !used[j] && p.element === guessedElement);
 
     if (idx !== -1) {
       tiles[i] = "YELLOW";
