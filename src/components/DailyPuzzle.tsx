@@ -10,15 +10,7 @@ export default function DailyPuzzle() {
   // 1) CONSTANTS + TYPES
   // =========================================================
 
-  const ELEMENTS: Element[] = [
-    "Pyro",
-    "Hydro",
-    "Electro",
-    "Cryo",
-    "Dendro",
-    "Anemo",
-    "Geo",
-  ];
+  const ELEMENTS: Element[] = ["Pyro", "Hydro", "Electro", "Cryo", "Dendro", "Anemo", "Geo"];
 
   type DailyScore = 1 | 2 | 3 | 4 | 5 | "FAIL";
 
@@ -96,9 +88,7 @@ export default function DailyPuzzle() {
 
   const [filterMode, setFilterMode] = useState<"all" | "elements">("all");
 
-  const [activeElements, setActiveElements] = useState<
-    Record<Element, boolean>
-  >(() =>
+  const [activeElements, setActiveElements] = useState<Record<Element, boolean>>(() =>
     ELEMENTS.reduce(
       (acc, el) => {
         acc[el] = false;
@@ -109,9 +99,9 @@ export default function DailyPuzzle() {
   );
 
   const [showStats, setShowStats] = useState(false);
-  const [scoresSnapshot, setScoresSnapshot] = useState<
-    Record<string, DailyScore>
-  >(() => loadScores());
+  const [scoresSnapshot, setScoresSnapshot] = useState<Record<string, DailyScore>>(() =>
+    loadScores(),
+  );
 
   const [state, setState] = useState<GameState>(initialState);
   const [preview, setPreview] = useState<string[]>([]);
@@ -253,12 +243,7 @@ export default function DailyPuzzle() {
 
       if (finalState.isWin) {
         const guessesTaken = finalState.guessesSoFar.length; // 1..5
-        const clamped = Math.min(5, Math.max(1, guessesTaken)) as
-          | 1
-          | 2
-          | 3
-          | 4
-          | 5;
+        const clamped = Math.min(5, Math.max(1, guessesTaken)) as 1 | 2 | 3 | 4 | 5;
         scores[selectedDate] = clamped;
       } else {
         scores[selectedDate] = "FAIL";
@@ -305,19 +290,12 @@ export default function DailyPuzzle() {
           const text = await res.text();
           setIsDateLoading(false);
 
-          if (
-            res.status === 404 &&
-            text.includes("No unused submissions left")
-          ) {
-            setLoadError(
-              "No daily puzzles available right now. Please check back later.",
-            );
+          if (res.status === 404 && text.includes("No unused submissions left")) {
+            setLoadError("No daily puzzles available right now. Please check back later.");
             return;
           }
 
-          setLoadError(
-            "Failed to load daily puzzle. Please refresh and try again.",
-          );
+          setLoadError("Failed to load daily puzzle. Please refresh and try again.");
           return;
         }
 
@@ -351,18 +329,8 @@ export default function DailyPuzzle() {
               individualDps: 0,
               damagePercentage: 0,
             })),
-            constellations: row.constellations ?? [
-              "Hidden",
-              "Hidden",
-              "Hidden",
-              "Hidden",
-            ],
-            refinements: row.refinements ?? [
-              "Hidden",
-              "Hidden",
-              "Hidden",
-              "Hidden",
-            ],
+            constellations: row.constellations ?? ["Hidden", "Hidden", "Hidden", "Hidden"],
+            refinements: row.refinements ?? ["Hidden", "Hidden", "Hidden", "Hidden"],
             genshinUid: row.genshin_uid ?? null,
           },
         };
@@ -373,12 +341,7 @@ export default function DailyPuzzle() {
         const isToday = row.date === todayUTC();
         const run = loadTodayRun();
 
-        if (
-          isToday &&
-          run &&
-          run.date === row.date &&
-          run.puzzleId === String(row.id)
-        ) {
+        if (isToday && run && run.date === row.date && run.puzzleId === String(row.id)) {
           let rebuilt = baseState;
           for (const g of run.guesses) {
             rebuilt = makeGuess(rebuilt, { characters: g });
@@ -388,12 +351,7 @@ export default function DailyPuzzle() {
           setPreview(run.preview ?? []);
         } else {
           // If we're on today but cookie refers to a different puzzle, discard it
-          if (
-            isToday &&
-            run &&
-            run.date === row.date &&
-            run.puzzleId !== String(row.id)
-          ) {
+          if (isToday && run && run.date === row.date && run.puzzleId !== String(row.id)) {
             clearTodayRun();
           }
           setState(baseState);
@@ -401,9 +359,7 @@ export default function DailyPuzzle() {
       } catch (e) {
         setIsDateLoading(false);
         console.error("Failed to load daily puzzle:", e);
-        setLoadError(
-          "Failed to load daily puzzle. Please refresh and try again.",
-        );
+        setLoadError("Failed to load daily puzzle. Please refresh and try again.");
       }
     };
 
@@ -489,11 +445,7 @@ export default function DailyPuzzle() {
   // =========================================================
 
   const revealHint = (
-    hint:
-      | "strongestHit"
-      | "totalDps"
-      | "elements"
-      | "constellationsRefinements",
+    hint: "strongestHit" | "totalDps" | "elements" | "constellationsRefinements",
   ) => {
     setState((prev) => ({
       ...prev,
@@ -532,19 +484,14 @@ export default function DailyPuzzle() {
     <div style={{ minHeight: "100vh" }}>
       <TopTabs
         onShowScores={() => setShowStats(true)}
-        statusText={
-          isGameOver
-            ? state.isWin
-              ? "You solved the puzzle"
-              : "Game Over"
-            : undefined
-        }
+        statusText={isGameOver ? (state.isWin ? "You solved the puzzle" : "Game Over") : undefined}
         statusColor={state.isWin ? "lightgreen" : "#ff6b6b"}
       />
 
       {/* ================= STATS MODAL ================= */}
       {showStats && (
-        <div
+        <button
+          type="button"
           style={{
             position: "fixed",
             inset: 0,
@@ -553,10 +500,16 @@ export default function DailyPuzzle() {
             alignItems: "center",
             justifyContent: "center",
             zIndex: 9999,
+            border: "none",
+            padding: 0,
           }}
           onClick={() => setShowStats(false)}
+          aria-label="Close stats"
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            tabIndex={-1}
             style={{
               width: 520,
               maxWidth: "92vw",
@@ -566,6 +519,12 @@ export default function DailyPuzzle() {
               padding: 14,
             }}
             onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.stopPropagation();
+                setShowStats(false);
+              }
+            }}
           >
             <div
               style={{
@@ -643,9 +602,7 @@ export default function DailyPuzzle() {
                             }}
                           />
                         </div>
-                        <div style={{ textAlign: "right", opacity: 0.85 }}>
-                          {n}
-                        </div>
+                        <div style={{ textAlign: "right", opacity: 0.85 }}>{n}</div>
                       </div>
                     );
                   })}
@@ -653,7 +610,7 @@ export default function DailyPuzzle() {
               );
             })()}
           </div>
-        </div>
+        </button>
       )}
 
       <div style={{ padding: "1rem" }}>
@@ -682,9 +639,11 @@ export default function DailyPuzzle() {
                 const char = displaySlots[i];
 
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={i}
-                    onClick={() => !isGameOver && char && removePreviewAt(i)}
+                    disabled={!char || isGameOver}
+                    onClick={() => removePreviewAt(i)}
                     style={{
                       width: 72,
                       height: 72,
@@ -696,6 +655,7 @@ export default function DailyPuzzle() {
                       background: "#1f1f1f",
                       cursor: char ? "pointer" : "default",
                       opacity: char ? 1 : 0.6,
+                      padding: 0,
                     }}
                     title={char ? `${char} (click to remove)` : undefined}
                   >
@@ -710,7 +670,7 @@ export default function DailyPuzzle() {
                         }}
                       />
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -725,10 +685,7 @@ export default function DailyPuzzle() {
                 Submit Guess
               </button>
 
-              <button
-                onClick={removeLastPreview}
-                disabled={preview.length === 0 || isGameOver}
-              >
+              <button onClick={removeLastPreview} disabled={preview.length === 0 || isGameOver}>
                 Backspace
               </button>
             </div>
@@ -1045,8 +1002,7 @@ export default function DailyPuzzle() {
               <button
                 style={{ width: "100%" }}
                 disabled={
-                  !state.clueState.strongestHitUnlocked ||
-                  state.clueState.strongestHitRevealed
+                  !state.clueState.strongestHitUnlocked || state.clueState.strongestHitRevealed
                 }
                 onClick={() => revealHint("strongestHit")}
               >
@@ -1054,18 +1010,13 @@ export default function DailyPuzzle() {
               </button>
 
               <div style={{ minHeight: 22, opacity: 0.9 }}>
-                {state.clueState.strongestHitRevealed
-                  ? state.puzzle.strongestHit
-                  : ""}
+                {state.clueState.strongestHitRevealed ? state.puzzle.strongestHit : ""}
               </div>
 
               {/* Total DPS */}
               <button
                 style={{ width: "100%" }}
-                disabled={
-                  !state.clueState.totalDpsUnlocked ||
-                  state.clueState.totalDpsRevealed
-                }
+                disabled={!state.clueState.totalDpsUnlocked || state.clueState.totalDpsRevealed}
                 onClick={() => revealHint("totalDps")}
               >
                 Total DPS
@@ -1078,10 +1029,7 @@ export default function DailyPuzzle() {
               {/* Elements */}
               <button
                 style={{ width: "100%" }}
-                disabled={
-                  !state.clueState.elementsUnlocked ||
-                  state.clueState.elementsRevealed
-                }
+                disabled={!state.clueState.elementsUnlocked || state.clueState.elementsRevealed}
                 onClick={() => revealHint("elements")}
               >
                 Elements
@@ -1126,12 +1074,10 @@ export default function DailyPuzzle() {
                 lineHeight: 1.5,
               }}
             >
-              <span style={{ color: "#2f6f3a", fontWeight: 600 }}>Green</span> =
-              Correct character {" | "}
-              <span style={{ color: "#7a6a2b", fontWeight: 600 }}>
-                Yellow
-              </span>{" "}
-              = Correct element {" | "}Order does not matter
+              <span style={{ color: "#2f6f3a", fontWeight: 600 }}>Green</span> = Correct character{" "}
+              {" | "}
+              <span style={{ color: "#7a6a2b", fontWeight: 600 }}>Yellow</span> = Correct element{" "}
+              {" | "}Order does not matter
             </div>
 
             {state.guessesSoFar.map((guess, i) => (
@@ -1147,11 +1093,7 @@ export default function DailyPuzzle() {
                 {guess.characters.map((char, j) => {
                   const tile = state.gridTiles[i][j];
                   const color =
-                    tile === "GREEN"
-                      ? "#2f6f3a"
-                      : tile === "YELLOW"
-                        ? "#7a6a2b"
-                        : "#555";
+                    tile === "GREEN" ? "#2f6f3a" : tile === "YELLOW" ? "#7a6a2b" : "#555";
 
                   return (
                     <div
