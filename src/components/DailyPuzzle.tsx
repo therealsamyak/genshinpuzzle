@@ -746,7 +746,7 @@ export default function DailyPuzzle() {
                     aria-pressed={isOn}
                   >
                     <img
-                      src={`/genshinpuzzle/icons/elements/${el}_Icon.png`}
+                      src={`${import.meta.env.BASE_URL}icons/elements/${el}_Icon.png`}
                       alt={el}
                       style={{
                         width: 30,
@@ -1049,7 +1049,7 @@ export default function DailyPuzzle() {
                   ? state.puzzle.team.map((c, idx) => (
                       <img
                         key={`${c.element}-${idx}`}
-                        src={`/genshinpuzzle/icons/elements/${c.element}_Icon.png`}
+                        src={`${import.meta.env.BASE_URL}icons/elements/${c.element}_Icon.png`}
                         alt={c.element}
                         title={c.element}
                         style={{

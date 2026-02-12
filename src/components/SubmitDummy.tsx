@@ -491,7 +491,7 @@ export default function SubmitDummy() {
                     aria-pressed={isOn}
                   >
                     <img
-                      src={`/genshinpuzzle/icons/elements/${el}_Icon.png`}
+                      src={`${import.meta.env.BASE_URL}icons/elements/${el}_Icon.png`}
                       alt={el}
                       style={{
                         width: 30,
