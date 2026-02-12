@@ -6,39 +6,14 @@ import { CHARACTER_DATA } from "../game/characters";
 type Constellation = "Hidden" | "C0" | "C1" | "C2" | "C3" | "C4" | "C5" | "C6";
 type Refinement = "Hidden" | "R0" | "R1" | "R2" | "R3" | "R4" | "R5";
 
-const CONSTELLATION_OPTIONS: Constellation[] = [
-  "Hidden",
-  "C0",
-  "C1",
-  "C2",
-  "C3",
-  "C4",
-  "C5",
-  "C6",
-];
-const REFINEMENT_OPTIONS: Refinement[] = [
-  "Hidden",
-  "R0",
-  "R1",
-  "R2",
-  "R3",
-  "R4",
-  "R5",
-];
+const CONSTELLATION_OPTIONS: Constellation[] = ["Hidden", "C0", "C1", "C2", "C3", "C4", "C5", "C6"];
+const REFINEMENT_OPTIONS: Refinement[] = ["Hidden", "R0", "R1", "R2", "R3", "R4", "R5"];
 
 const DEFAULT_C: Constellation = "Hidden";
 const DEFAULT_R: Refinement = "Hidden";
 
 export default function SubmitDummy() {
-  const ELEMENTS: Element[] = [
-    "Pyro",
-    "Hydro",
-    "Electro",
-    "Cryo",
-    "Dendro",
-    "Anemo",
-    "Geo",
-  ];
+  const ELEMENTS: Element[] = ["Pyro", "Hydro", "Electro", "Cryo", "Dendro", "Anemo", "Geo"];
 
   /* ================= FILE ================= */
 
@@ -53,12 +28,7 @@ export default function SubmitDummy() {
 
   /* ================= TEAM SELECTION ================= */
 
-  const [preview, setPreview] = useState<(string | null)[]>([
-    null,
-    null,
-    null,
-    null,
-  ]);
+  const [preview, setPreview] = useState<(string | null)[]>([null, null, null, null]);
   const [constellations, setConstellations] = useState<Constellation[]>([
     DEFAULT_C,
     DEFAULT_C,
@@ -203,9 +173,7 @@ export default function SubmitDummy() {
       form.append("r2", refinements[2] ?? DEFAULT_R);
       form.append("r3", refinements[3] ?? DEFAULT_R);
 
-      const elements = preview.map((name) =>
-        name ? CHARACTER_DATA[name].element : "None",
-      );
+      const elements = preview.map((name) => (name ? CHARACTER_DATA[name].element : "None"));
 
       form.append("elements", JSON.stringify(elements));
 
@@ -245,9 +213,7 @@ export default function SubmitDummy() {
 
   const [filterMode, setFilterMode] = useState<"all" | "elements">("all");
 
-  const [activeElements, setActiveElements] = useState<
-    Record<Element, boolean>
-  >(() =>
+  const [activeElements, setActiveElements] = useState<Record<Element, boolean>>(() =>
     ELEMENTS.reduce(
       (acc, el) => {
         acc[el] = false; // all element buttons off by default; "All" mode shows everything
@@ -361,9 +327,7 @@ export default function SubmitDummy() {
               </div>
 
               {/* Slots: portrait + C + R (each column aligned) */}
-              <div
-                style={{ display: "flex", gap: 12, justifyContent: "center" }}
-              >
+              <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
                 {[0, 1, 2, 3].map((i) => {
                   const char = preview[i];
                   const hasChar = !!char;
@@ -567,9 +531,7 @@ export default function SubmitDummy() {
                       padding: 4,
                       borderRadius: 6,
                       border: "1px solid #444",
-                      background: preview.includes(name)
-                        ? "#3a3a3a"
-                        : "#2a2a2a",
+                      background: preview.includes(name) ? "#3a3a3a" : "#2a2a2a",
                       cursor: "pointer",
                     }}
                   >
@@ -593,16 +555,13 @@ export default function SubmitDummy() {
             <h3 style={{ marginTop: 0 }}>Submit a Dummy</h3>
 
             <div style={{ marginBottom: 12, opacity: 0.9 }}>
-              Upload a PNG screenshot (≤ 1MB) and select the 4-character team
-              shown. Please edit the image to hide the DPS, characters and
-              strongest hit as shown. <br></br>For Constellations and
-              Refinements, if the value is "Hidden" it will not be shown to the
-              player, only include these if you think these values are abnormal
-              and important for the player to guess the team.
+              Upload a PNG screenshot (≤ 1MB) and select the 4-character team shown. Please edit the
+              image to hide the DPS, characters and strongest hit as shown. <br></br>For
+              Constellations and Refinements, if the value is "Hidden" it will not be shown to the
+              player, only include these if you think these values are abnormal and important for
+              the player to guess the team.
               <div style={{ marginTop: 10 }}>
-                <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>
-                  Example
-                </div>
+                <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>Example</div>
                 <img
                   src="/genshinpuzzle/example-submission.png"
                   alt="Example submission"
@@ -619,9 +578,7 @@ export default function SubmitDummy() {
 
             {/* File picker */}
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>
-                Screenshot (PNG only)
-              </div>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>Screenshot (PNG only)</div>
               <input
                 type="file"
                 accept="image/png"
@@ -632,11 +589,7 @@ export default function SubmitDummy() {
                   {file.name} ({Math.round(file.size / 1024)} KB)
                 </div>
               )}
-              {fileError && (
-                <div style={{ marginTop: 6, color: "#ff6b6b" }}>
-                  {fileError}
-                </div>
-              )}
+              {fileError && <div style={{ marginTop: 6, color: "#ff6b6b" }}>{fileError}</div>}
             </div>
 
             {imagePreviewUrl && !fileError && (
@@ -670,9 +623,7 @@ export default function SubmitDummy() {
               <input
                 value={strongestHit}
                 onChange={(e) =>
-                  setStrongestHit(
-                    sanitizeDigits(e.target.value).slice(0, HINT_MAX_DIGITS),
-                  )
+                  setStrongestHit(sanitizeDigits(e.target.value).slice(0, HINT_MAX_DIGITS))
                 }
                 inputMode="numeric"
                 pattern="\d*"
@@ -689,9 +640,7 @@ export default function SubmitDummy() {
               <input
                 value={totalDps}
                 onChange={(e) =>
-                  setTotalDps(
-                    sanitizeDigits(e.target.value).slice(0, HINT_MAX_DIGITS),
-                  )
+                  setTotalDps(sanitizeDigits(e.target.value).slice(0, HINT_MAX_DIGITS))
                 }
                 inputMode="numeric"
                 pattern="\d*"
@@ -731,11 +680,7 @@ export default function SubmitDummy() {
                 {isSubmitting ? "Submitting..." : "Submit Dummy"}
               </button>
 
-              {submitError && (
-                <div style={{ marginTop: 10, color: "#ff6b6b" }}>
-                  {submitError}
-                </div>
-              )}
+              {submitError && <div style={{ marginTop: 10, color: "#ff6b6b" }}>{submitError}</div>}
 
               {submissionId && (
                 <div style={{ marginTop: 10 }}>
@@ -745,15 +690,13 @@ export default function SubmitDummy() {
 
               {!isValid && (
                 <div style={{ marginTop: 8, opacity: 0.8, fontSize: 12 }}>
-                  Required: PNG ≤ 1MB, select 4 unique characters, and enter
-                  both numbers.
+                  Required: PNG ≤ 1MB, select 4 unique characters, and enter both numbers.
                 </div>
               )}
               <div style={{ marginBottom: 12, opacity: 0.9 }}>
                 <br></br>
-                Currently there is no functionality to remove or edit entries
-                you submit, but in the future you will be able to use the code
-                provided after submission to do so.
+                Currently there is no functionality to remove or edit entries you submit, but in the
+                future you will be able to use the code provided after submission to do so.
               </div>
             </div>
           </div>

@@ -12,8 +12,7 @@ export default function Footer() {
     >
       <div>Genshin Impact and all related assets are © HoYoverse.</div>
       <div>
-        This is an unofficial fan project and is not affiliated with or endorsed
-        by HoYoverse.
+        This is an unofficial fan project and is not affiliated with or endorsed by HoYoverse.
       </div>
     </footer>
   );
