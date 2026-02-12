@@ -6,6 +6,10 @@ import { CHARACTER_DATA } from "../game/characters";
 import TopTabs from "./TopTabs";
 
 export default function DailyPuzzle() {
+  // =========================================================
+  // 1) CONSTANTS + TYPES
+  // =========================================================
+
   const ELEMENTS: Element[] = [
     "Pyro",
     "Hydro",
@@ -16,7 +20,6 @@ export default function DailyPuzzle() {
     "Geo",
   ];
 
-  //cookies
   type DailyScore = 1 | 2 | 3 | 4 | 5 | "FAIL";
 
   type TodayRunSnapshot = {
@@ -30,6 +33,10 @@ export default function DailyPuzzle() {
 
   const STATS_COOKIE = "gdg_daily_scores_v1";
   const TODAY_RUN_COOKIE = "gdg_today_run_v1";
+
+  // =========================================================
+  // 2) COOKIE HELPERS (pure I/O)
+  // =========================================================
 
   const getCookie = useCallback((name: string): string | null => {
     const parts = document.cookie.split("; ").map((p) => p.split("="));
@@ -53,13 +60,13 @@ export default function DailyPuzzle() {
     } catch {
       return {};
     }
-  }, [getCookie, STATS_COOKIE]);
+  }, [getCookie]);
 
   const saveScores = useCallback(
     (scores: Record<string, DailyScore>) => {
       setCookie(STATS_COOKIE, JSON.stringify(scores), 365);
     },
-    [setCookie, STATS_COOKIE],
+    [setCookie],
   );
 
   const loadTodayRun = useCallback((): TodayRunSnapshot | null => {
@@ -70,18 +77,22 @@ export default function DailyPuzzle() {
     } catch {
       return null;
     }
-  }, [getCookie, TODAY_RUN_COOKIE]);
+  }, [getCookie]);
 
   const saveTodayRun = useCallback(
     (snap: TodayRunSnapshot) => {
       setCookie(TODAY_RUN_COOKIE, JSON.stringify(snap), 7);
     },
-    [setCookie, TODAY_RUN_COOKIE],
+    [setCookie],
   );
 
   const clearTodayRun = useCallback(() => {
     setCookie(TODAY_RUN_COOKIE, "", 0);
-  }, [setCookie, TODAY_RUN_COOKIE]);
+  }, [setCookie]);
+
+  // =========================================================
+  // 3) UI + GAME STATE
+  // =========================================================
 
   const [filterMode, setFilterMode] = useState<"all" | "elements">("all");
 
@@ -90,16 +101,43 @@ export default function DailyPuzzle() {
   >(() =>
     ELEMENTS.reduce(
       (acc, el) => {
-        acc[el] = false; // all element buttons off by default; "All" mode shows everything
+        acc[el] = false;
         return acc;
       },
       {} as Record<Element, boolean>,
     ),
   );
 
+  const [showStats, setShowStats] = useState(false);
+  const [scoresSnapshot, setScoresSnapshot] = useState<
+    Record<string, DailyScore>
+  >(() => loadScores());
+
+  const [state, setState] = useState<GameState>(initialState);
+  const [preview, setPreview] = useState<string[]>([]);
+
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [puzzleImageUrl, setPuzzleImageUrl] = useState<string | null>(null);
+
+  const [selectedDate, setSelectedDate] = useState<string>(() =>
+    new Date().toISOString().slice(0, 10),
+  );
+  const [prevDate, setPrevDate] = useState<string | null>(null);
+  const [nextDate, setNextDate] = useState<string | null>(null);
+  const [isDateLoading, setIsDateLoading] = useState(false);
+
+  // Used to avoid writing placeholder state into cookies mid-load
+  const [loadedPuzzleId, setLoadedPuzzleId] = useState<string | null>(null);
+
+  const isTodaySelected = selectedDate === todayUTC();
+  const isGameOver = state.isWin || state.isOver;
+
+  // =========================================================
+  // 4) FILTER CONTROLS
+  // =========================================================
+
   const clickAll = () => {
     setFilterMode("all");
-    // turn all element buttons off
     setActiveElements(
       ELEMENTS.reduce(
         (acc, el) => {
@@ -117,51 +155,60 @@ export default function DailyPuzzle() {
       const next = { ...prev, [el]: !prev[el] };
 
       const anyOn = ELEMENTS.some((e) => next[e]);
-      if (!anyOn) {
-        setFilterMode("all");
-      }
+      if (!anyOn) setFilterMode("all");
 
       return next;
     });
   };
 
-  const [showStats, setShowStats] = useState(false);
-  const [scoresSnapshot, setScoresSnapshot] = useState<
-    Record<string, DailyScore>
-  >(() => loadScores());
+  // =========================================================
+  // 5) CANONICAL “TODAY RUN” PERSISTENCE
+  //    - one canonical writer + one manual flush
+  // =========================================================
 
-  const [state, setState] = useState<GameState>(initialState);
+  const canPersistToday = useCallback(() => {
+    if (!isTodaySelected) return false;
+    if (isDateLoading) return false;
+    if (!loadedPuzzleId) return false;
+    if (String(state.puzzle.id) !== loadedPuzzleId) return false;
+    return true;
+  }, [isTodaySelected, isDateLoading, loadedPuzzleId, state.puzzle.id]);
 
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const writeTodayRun = useCallback(() => {
+    if (!canPersistToday()) return;
 
-  const [selectedDate, setSelectedDate] = useState<string>(() =>
-    new Date().toISOString().slice(0, 10),
-  );
-  const [prevDate, setPrevDate] = useState<string | null>(null);
-  const [nextDate, setNextDate] = useState<string | null>(null);
+    saveTodayRun({
+      date: selectedDate,
+      puzzleId: loadedPuzzleId!, // safe after canPersistToday()
+      preview,
+      guesses: state.guessesSoFar.map((g) => g.characters),
+      isWin: state.isWin,
+      isOver: state.isOver,
+    });
+  }, [
+    canPersistToday,
+    saveTodayRun,
+    selectedDate,
+    loadedPuzzleId,
+    preview,
+    state.guessesSoFar,
+    state.isWin,
+    state.isOver,
+  ]);
 
-  const [isDateLoading, setIsDateLoading] = useState(false);
+  // Manual flush used when leaving today via arrows
+  const persistTodayNow = useCallback(() => {
+    writeTodayRun();
+  }, [writeTodayRun]);
 
-  // Preview
-  const [preview, setPreview] = useState<string[]>([]);
+  // Autosave whenever the run changes (today only, loaded puzzle only)
+  useEffect(() => {
+    writeTodayRun();
+  }, [writeTodayRun]);
 
-  //Daily Puzzle
-  const [puzzleImageUrl, setPuzzleImageUrl] = useState<string | null>(null);
-
-  const maybeSaveTodayRun = useCallback(
-    (nextState: GameState, nextPreview: string[]) => {
-      if (selectedDate !== todayUTC()) return;
-      saveTodayRun({
-        date: selectedDate,
-        puzzleId: String(nextState.puzzle.id),
-        preview: nextPreview,
-        guesses: nextState.guessesSoFar.map((g) => g.characters),
-        isWin: nextState.isWin,
-        isOver: nextState.isOver,
-      });
-    },
-    [selectedDate, todayUTC, saveTodayRun],
-  );
+  // =========================================================
+  // 6) DAILY SCORE RECORDING (on game end, today only)
+  // =========================================================
 
   const recordScoreIfToday = useCallback(
     (finalState: GameState) => {
@@ -169,10 +216,10 @@ export default function DailyPuzzle() {
       if (!finalState.isOver) return;
 
       const scores = loadScores();
-      if (scores[selectedDate]) return;
+      if (scores[selectedDate]) return; // already recorded for this date
 
       if (finalState.isWin) {
-        const guessesTaken = finalState.guessesSoFar.length;
+        const guessesTaken = finalState.guessesSoFar.length; // 1..5
         const clamped = Math.min(5, Math.max(1, guessesTaken)) as
           | 1
           | 2
@@ -191,16 +238,23 @@ export default function DailyPuzzle() {
     [selectedDate, todayUTC, loadScores, saveScores],
   );
 
+  // =========================================================
+  // 7) LOAD PUZZLE (and restore today run if applicable)
+  // =========================================================
+
   useEffect(() => {
     const load = async () => {
-      // IMPORTANT: clear UI state immediately when switching date
+      // Clear UI state immediately when switching date
       setLoadError(null);
       setPuzzleImageUrl(null);
-      setPreview([]); // ok here (but must be declared before this effect)
+      setPreview([]);
       setState(initialState);
-      setIsDateLoading(true);
+
       setPrevDate(null);
       setNextDate(null);
+
+      setLoadedPuzzleId(null);
+      setIsDateLoading(true);
 
       try {
         const res = await fetch(
@@ -215,8 +269,9 @@ export default function DailyPuzzle() {
         );
 
         if (!res.ok) {
-          setIsDateLoading(false);
           const text = await res.text();
+          setIsDateLoading(false);
+
           if (
             res.status === 404 &&
             text.includes("No unused submissions left")
@@ -226,6 +281,7 @@ export default function DailyPuzzle() {
             );
             return;
           }
+
           setLoadError(
             "Failed to load daily puzzle. Please refresh and try again.",
           );
@@ -234,8 +290,13 @@ export default function DailyPuzzle() {
 
         const row = await res.json();
 
-        if (row.date && row.date !== selectedDate) setSelectedDate(row.date);
-        // keep in sync with server
+        // If server corrected date, update and let effect rerun
+        if (row.date && row.date !== selectedDate) {
+          setSelectedDate(row.date);
+          setIsDateLoading(false);
+          return;
+        }
+
         setIsDateLoading(false);
         setPrevDate(row.prev_date ?? null);
         setNextDate(row.next_date ?? null);
@@ -244,7 +305,6 @@ export default function DailyPuzzle() {
         const teamNames: string[] = row.team ?? [];
         const elements: string[] = row.elements ?? [];
 
-        // base fresh puzzle state
         const baseState: GameState = {
           ...initialState,
           puzzle: {
@@ -274,7 +334,9 @@ export default function DailyPuzzle() {
           },
         };
 
-        // restore only if we're viewing TODAY and puzzleId matches
+        setLoadedPuzzleId(String(row.id));
+
+        // Restore only for TODAY and only if puzzleId matches
         const isToday = row.date === todayUTC();
         const run = loadTodayRun();
 
@@ -284,18 +346,15 @@ export default function DailyPuzzle() {
           run.date === row.date &&
           run.puzzleId === String(row.id)
         ) {
-          // rebuild state by replaying guesses in order
           let rebuilt = baseState;
           for (const g of run.guesses) {
             rebuilt = makeGuess(rebuilt, { characters: g });
           }
 
-          // preserve end state if they were already done
-          // (makeGuess already sets isWin/isOver based on tiles + lives)
           setState(rebuilt);
           setPreview(run.preview ?? []);
         } else {
-          // if it's today but run is for a different puzzle, clear it
+          // If we're on today but cookie refers to a different puzzle, discard it
           if (
             isToday &&
             run &&
@@ -316,23 +375,15 @@ export default function DailyPuzzle() {
     };
 
     load();
-  }, [selectedDate, loadTodayRun, clearTodayRun, todayUTC]);
+  }, [selectedDate, todayUTC, loadTodayRun, clearTodayRun]);
+
+  // =========================================================
+  // 8) GAMEPLAY CONTROLS
+  // =========================================================
 
   const removePreviewAt = (index: number) => {
     setPreview((prev) => prev.filter((_, i) => i !== index));
   };
-
-  const isGameOver = state.isWin || state.isOver;
-
-  const answerPreview = state.puzzle.team.map((c) => c.name);
-  const displaySlots = isGameOver ? answerPreview : preview;
-
-  // Characters that were ever GREEN / YELLOW (based on gridTiles)
-  const correctCharacters = state.guessesSoFar.flatMap((g, i) =>
-    g.characters.filter((_, j) => state.gridTiles[i][j] === "GREEN"),
-  );
-
-  // ---- Preview controls ----
 
   const addToPreview = (name: string) => {
     if (isGameOver) return;
@@ -357,7 +408,6 @@ export default function DailyPuzzle() {
     const guess: Guess = { characters: preview };
     const next = makeGuess(state, guess);
 
-    // If this guess wins, reveal all hints (but still allow the user to "see them all")
     const finalState = next.isWin
       ? {
           ...next,
@@ -379,31 +429,8 @@ export default function DailyPuzzle() {
     recordScoreIfToday(finalState);
 
     setPreview([]);
-    maybeSaveTodayRun(finalState, []);
-  }, [preview, isGameOver, state, recordScoreIfToday, maybeSaveTodayRun]);
-
-  useEffect(() => {
-    if (selectedDate !== todayUTC()) return;
-    if (!state.puzzle.id) return;
-
-    saveTodayRun({
-      date: selectedDate,
-      puzzleId: String(state.puzzle.id),
-      preview,
-      guesses: state.guessesSoFar.map((g) => g.characters),
-      isWin: state.isWin,
-      isOver: state.isOver,
-    });
-  }, [
-    preview,
-    selectedDate,
-    state.puzzle.id,
-    state.guessesSoFar,
-    state.isWin,
-    state.isOver,
-    saveTodayRun,
-    todayUTC,
-  ]);
+    // No manual today-run write needed; autosave will run
+  }, [preview, isGameOver, state, recordScoreIfToday]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -424,7 +451,9 @@ export default function DailyPuzzle() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isGameOver, removeLastPreview, submitGuess]);
 
-  // ---- Hint reveal ----
+  // =========================================================
+  // 9) HINT REVEAL
+  // =========================================================
 
   const revealHint = (
     hint:
@@ -439,16 +468,30 @@ export default function DailyPuzzle() {
     }));
   };
 
-  // ---- Grid background color ----
+  // =========================================================
+  // 10) DERIVED RENDER VALUES
+  // =========================================================
+
+  const answerPreview = state.puzzle.team.map((c) => c.name);
+  const displaySlots = isGameOver ? answerPreview : preview;
+
+  const correctCharacters = state.guessesSoFar.flatMap((g, i) =>
+    g.characters.filter((_, j) => state.gridTiles[i][j] === "GREEN"),
+  );
 
   const getGridBg = (name: string) => {
-    if (correctCharacters.includes(name)) return "#2f6f3a"; // green
-    return "#2a2a2a"; // neutral
+    if (correctCharacters.includes(name)) return "#2f6f3a";
+    return "#2a2a2a";
   };
+
+  // =========================================================
+  // 11) RENDER
+  // =========================================================
 
   return (
     <div style={{ minHeight: "100vh" }}>
       <TopTabs
+        onShowScores={() => setShowStats(true)}
         statusText={
           isGameOver
             ? state.isWin
@@ -459,6 +502,7 @@ export default function DailyPuzzle() {
         statusColor={state.isWin ? "lightgreen" : "#ff6b6b"}
       />
 
+      {/* ================= STATS MODAL ================= */}
       {showStats && (
         <div
           style={{
@@ -493,7 +537,14 @@ export default function DailyPuzzle() {
               <div style={{ fontWeight: 700 }}>Your Daily Results</div>
               <button
                 onClick={() => setShowStats(false)}
-                style={{ width: 32, height: 32 }}
+                style={{
+                  width: 32,
+                  height: 32,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  lineHeight: 1,
+                }}
               >
                 ✕
               </button>
@@ -572,8 +623,8 @@ export default function DailyPuzzle() {
             display: "flex",
             gap: "2rem",
             minHeight: "100vh",
-            justifyContent: "flex-start", // ✅ top (main axis)
-            alignItems: "stretch", // ✅ normal
+            justifyContent: "flex-start",
+            alignItems: "stretch",
           }}
         >
           {/* ============== LEFT SIDE ============== */}
@@ -587,7 +638,6 @@ export default function DailyPuzzle() {
                 marginBottom: "1rem",
               }}
             >
-              {/* Character Select */}
               {[0, 1, 2, 3].map((i) => {
                 const char = displaySlots[i];
 
@@ -616,7 +666,7 @@ export default function DailyPuzzle() {
                         style={{
                           width: 56,
                           height: 56,
-                          pointerEvents: "none", // IMPORTANT
+                          pointerEvents: "none",
                         }}
                       />
                     )}
@@ -654,7 +704,6 @@ export default function DailyPuzzle() {
                 flexWrap: "wrap",
               }}
             >
-              {/* All button (same style as element buttons) */}
               <button
                 onClick={clickAll}
                 style={{
@@ -676,7 +725,6 @@ export default function DailyPuzzle() {
                 <span style={{ fontSize: 12, fontWeight: 700 }}>ALL</span>
               </button>
 
-              {/* Element buttons (no None button) */}
               {ELEMENTS.map((el) => {
                 const isOn = filterMode === "elements" && activeElements[el];
 
@@ -733,7 +781,6 @@ export default function DailyPuzzle() {
                   if (filterMode === "all") return true;
                   return activeElements[data.element as Element];
                 })
-
                 .map(([name]) => (
                   <button
                     key={name}
@@ -765,7 +812,6 @@ export default function DailyPuzzle() {
           </div>
 
           {/* ============== RIGHT SIDE ============== */}
-
           <div style={{ width: "480px", flexShrink: 0 }}>
             {/* DATE */}
             <div
@@ -780,7 +826,11 @@ export default function DailyPuzzle() {
             >
               {!isDateLoading && prevDate ? (
                 <button
-                  onClick={() => setSelectedDate(prevDate)}
+                  onClick={() => {
+                    // Flush today progress before leaving today
+                    persistTodayNow();
+                    setSelectedDate(prevDate);
+                  }}
                   aria-label="Previous day"
                   title="Previous day"
                   style={{
@@ -826,7 +876,10 @@ export default function DailyPuzzle() {
 
               {!isDateLoading && nextDate ? (
                 <button
-                  onClick={() => setSelectedDate(nextDate)}
+                  onClick={() => {
+                    persistTodayNow();
+                    setSelectedDate(nextDate);
+                  }}
                   aria-label="Next day"
                   title="Next day"
                   style={{
@@ -944,7 +997,7 @@ export default function DailyPuzzle() {
                         const rShown = r !== "Hidden" ? r : "";
 
                         if (!cShown && !rShown) return "Hidden";
-                        return `${cShown}${rShown}`; // e.g. C1R1, R1, C2
+                        return `${cShown}${rShown}`;
                       })
                       .join(" | ")
                   : ""}
@@ -1024,6 +1077,7 @@ export default function DailyPuzzle() {
                   : ""}
               </div>
             </div>
+
             {/* Guesses */}
             <h3>Guesses</h3>
             <div
@@ -1035,13 +1089,11 @@ export default function DailyPuzzle() {
               }}
             >
               <span style={{ color: "#2f6f3a", fontWeight: 600 }}>Green</span> =
-              Correct character
-              {" | "}
+              Correct character {" | "}
               <span style={{ color: "#7a6a2b", fontWeight: 600 }}>
                 Yellow
               </span>{" "}
-              = Correct element
-              {" | "}Order does not matter
+              = Correct element {" | "}Order does not matter
             </div>
 
             {state.guessesSoFar.map((guess, i) => (

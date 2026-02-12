@@ -4,12 +4,14 @@ type Props = {
   title?: string;
   statusText?: string;
   statusColor?: string;
+  onShowScores?: () => void;
 };
 
 export default function TopTabs({
   title = "Genshin Dummy Guesser",
   statusText,
   statusColor,
+  onShowScores,
 }: Props) {
   const { pathname } = useLocation();
 
@@ -53,8 +55,10 @@ export default function TopTabs({
           <Link to="/roadmap" style={tabStyle(isRoadmap)}>
             Roadmap
           </Link>
+          <button type="button" onClick={onShowScores} style={tabStyle(false)}>
+            Scores
+          </button>
         </div>
-
         <div style={{ marginTop: 6, fontSize: 12, opacity: 0.65 }}>
           Made by{" "}
           <a
