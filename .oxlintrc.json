@@ -1,0 +1,19 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "typescript",
+    "unicorn",
+    "react",
+    "react-perf",
+    "oxc",
+    "import",
+    "jsdoc",
+    "jsx-a11y",
+    "promise",
+    "vitest"
+  ],
+  "env": {
+    "builtin": true
+  },
+  "ignorePatterns": ["**/node_modules/**"]
+}
