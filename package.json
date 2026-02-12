@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "rebuild": "rm -rf node_modules && rm -rf dist && deno install && npm run build",
+    "rebuild": "rm -rf node_modules && rm -rf dist && deno install && deno task prepare && deno task build",
     "lint": "oxlint --fix .",
     "format": "oxfmt .",
     "check": "deno task format && deno task lint",
