@@ -140,6 +140,8 @@ export default function DailyPuzzle() {
   const [prevDate, setPrevDate] = useState<string | null>(null);
   const [nextDate, setNextDate] = useState<string | null>(null);
 
+  const [isDateLoading, setIsDateLoading] = useState(false);
+
   // Preview
   const [preview, setPreview] = useState<string[]>([]);
 
@@ -324,8 +326,6 @@ export default function DailyPuzzle() {
 
   const answerPreview = state.puzzle.team.map((c) => c.name);
   const displaySlots = isGameOver ? answerPreview : preview;
-
-  const [isDateLoading, setIsDateLoading] = useState(false);
 
   // Characters that were ever GREEN / YELLOW (based on gridTiles)
   const correctCharacters = state.guessesSoFar.flatMap((g, i) =>

@@ -11,17 +11,7 @@ export default function Roadmap() {
         <div style={{ whiteSpace: "pre-line", lineHeight: 1.6, opacity: 0.9 }}>
           {`High Priority (Next Work)
 
-Daily Puzzle System
-
- - Ensure one daily puzzle per calendar day.
- - Randomly select from unused submissions.
- - Mark submissions with daily_used_at date.
- - Prevent reuse once dated.
-
- Next Pages
-
-- Add Daily Puzzle History page.
-- Add Puzzle Selection page.
+- Player Records
 - Add Endless Mode
 
 Gameplay / UX
@@ -31,7 +21,6 @@ maybe simply having the damage % shown and not the damage numbers,
 and have them revealed alongside DPS? (need ideas)
 
 - Allow deletion of past submissions (by submission ID).
-- Player Records
 
 Low Priority
 
