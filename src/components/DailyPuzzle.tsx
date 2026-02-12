@@ -132,6 +132,24 @@ export default function DailyPuzzle() {
   const isTodaySelected = selectedDate === todayUTC();
   const isGameOver = state.isWin || state.isOver;
 
+  const revealAllHintsIfWin = (s: GameState): GameState => {
+    if (!s.isWin) return s;
+    return {
+      ...s,
+      clueState: {
+        ...s.clueState,
+        strongestHitUnlocked: true,
+        totalDpsUnlocked: true,
+        elementsUnlocked: true,
+        strongestHitRevealed: true,
+        totalDpsRevealed: true,
+        elementsRevealed: true,
+        constellationsRefinementsUnlocked: true,
+        constellationsRefinementsRevealed: true,
+      },
+    };
+  };
+
   // =========================================================
   // 4) FILTER CONTROLS
   // =========================================================
@@ -366,7 +384,7 @@ export default function DailyPuzzle() {
             rebuilt = makeGuess(rebuilt, { characters: g });
           }
 
-          setState(rebuilt);
+          setState(revealAllHintsIfWin(rebuilt));
           setPreview(run.preview ?? []);
         } else {
           // If we're on today but cookie refers to a different puzzle, discard it
