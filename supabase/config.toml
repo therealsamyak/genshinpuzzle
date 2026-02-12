@@ -13,3 +13,8 @@ entrypoint = "./functions/ping/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/get_random_puzzle/index.ts"
+
+[functions.get_daily_puzzle]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/get_daily_puzzle/index.ts"

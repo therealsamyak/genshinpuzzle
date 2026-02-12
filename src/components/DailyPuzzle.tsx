@@ -16,6 +16,73 @@ export default function DailyPuzzle() {
     "Geo",
   ];
 
+  //cookies
+  type DailyScore = 1 | 2 | 3 | 4 | 5 | "FAIL";
+
+  type TodayRunSnapshot = {
+    date: string; // YYYY-MM-DD (UTC)
+    puzzleId: string; // submission id (string)
+    preview: string[];
+    guesses: string[][]; // guessesSoFar as list of 4-char arrays
+    isWin: boolean;
+    isOver: boolean;
+  };
+
+  const STATS_COOKIE = "gdg_daily_scores_v1";
+  const TODAY_RUN_COOKIE = "gdg_today_run_v1";
+
+  const getCookie = useCallback((name: string): string | null => {
+    const parts = document.cookie.split("; ").map((p) => p.split("="));
+    const hit = parts.find(([k]) => k === name);
+    return hit ? decodeURIComponent(hit[1] ?? "") : null;
+  }, []);
+
+  const setCookie = useCallback((name: string, value: string, days = 365) => {
+    const maxAge = days * 24 * 60 * 60;
+    document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${maxAge}; Path=/; SameSite=Lax`;
+  }, []);
+
+  const todayUTC = useCallback(() => new Date().toISOString().slice(0, 10), []);
+
+  const loadScores = useCallback((): Record<string, DailyScore> => {
+    try {
+      const raw = getCookie(STATS_COOKIE);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw) as Record<string, DailyScore>;
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  }, [getCookie, STATS_COOKIE]);
+
+  const saveScores = useCallback(
+    (scores: Record<string, DailyScore>) => {
+      setCookie(STATS_COOKIE, JSON.stringify(scores), 365);
+    },
+    [setCookie, STATS_COOKIE],
+  );
+
+  const loadTodayRun = useCallback((): TodayRunSnapshot | null => {
+    try {
+      const raw = getCookie(TODAY_RUN_COOKIE);
+      if (!raw) return null;
+      return JSON.parse(raw) as TodayRunSnapshot;
+    } catch {
+      return null;
+    }
+  }, [getCookie, TODAY_RUN_COOKIE]);
+
+  const saveTodayRun = useCallback(
+    (snap: TodayRunSnapshot) => {
+      setCookie(TODAY_RUN_COOKIE, JSON.stringify(snap), 7);
+    },
+    [setCookie, TODAY_RUN_COOKIE],
+  );
+
+  const clearTodayRun = useCallback(() => {
+    setCookie(TODAY_RUN_COOKIE, "", 0);
+  }, [setCookie, TODAY_RUN_COOKIE]);
+
   const [filterMode, setFilterMode] = useState<"all" | "elements">("all");
 
   const [activeElements, setActiveElements] = useState<
@@ -58,16 +125,84 @@ export default function DailyPuzzle() {
     });
   };
 
+  const [showStats, setShowStats] = useState(false);
+  const [scoresSnapshot, setScoresSnapshot] = useState<
+    Record<string, DailyScore>
+  >(() => loadScores());
+
   const [state, setState] = useState<GameState>(initialState);
 
-  //Random Puzzle
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [selectedDate, setSelectedDate] = useState<string>(() =>
+    new Date().toISOString().slice(0, 10),
+  );
+  const [prevDate, setPrevDate] = useState<string | null>(null);
+  const [nextDate, setNextDate] = useState<string | null>(null);
+
+  // Preview
+  const [preview, setPreview] = useState<string[]>([]);
+
+  //Daily Puzzle
   const [puzzleImageUrl, setPuzzleImageUrl] = useState<string | null>(null);
+
+  const maybeSaveTodayRun = useCallback(
+    (nextState: GameState, nextPreview: string[]) => {
+      if (selectedDate !== todayUTC()) return;
+      saveTodayRun({
+        date: selectedDate,
+        puzzleId: String(nextState.puzzle.id),
+        preview: nextPreview,
+        guesses: nextState.guessesSoFar.map((g) => g.characters),
+        isWin: nextState.isWin,
+        isOver: nextState.isOver,
+      });
+    },
+    [selectedDate, todayUTC, saveTodayRun],
+  );
+
+  const recordScoreIfToday = useCallback(
+    (finalState: GameState) => {
+      if (selectedDate !== todayUTC()) return;
+      if (!finalState.isOver) return;
+
+      const scores = loadScores();
+      if (scores[selectedDate]) return;
+
+      if (finalState.isWin) {
+        const guessesTaken = finalState.guessesSoFar.length;
+        const clamped = Math.min(5, Math.max(1, guessesTaken)) as
+          | 1
+          | 2
+          | 3
+          | 4
+          | 5;
+        scores[selectedDate] = clamped;
+      } else {
+        scores[selectedDate] = "FAIL";
+      }
+
+      saveScores(scores);
+      setScoresSnapshot(scores);
+      setShowStats(true);
+    },
+    [selectedDate, todayUTC, loadScores, saveScores],
+  );
 
   useEffect(() => {
     const load = async () => {
+      // IMPORTANT: clear UI state immediately when switching date
+      setLoadError(null);
+      setPuzzleImageUrl(null);
+      setPreview([]); // ok here (but must be declared before this effect)
+      setState(initialState);
+      setIsDateLoading(true);
+      setPrevDate(null);
+      setNextDate(null);
+
       try {
         const res = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get_random_puzzle`,
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get_daily_puzzle?date=${selectedDate}`,
           {
             method: "GET",
             headers: {
@@ -77,14 +212,38 @@ export default function DailyPuzzle() {
           },
         );
 
-        if (!res.ok) throw new Error(await res.text());
+        if (!res.ok) {
+          setIsDateLoading(false);
+          const text = await res.text();
+          if (
+            res.status === 404 &&
+            text.includes("No unused submissions left")
+          ) {
+            setLoadError(
+              "No daily puzzles available right now. Please check back later.",
+            );
+            return;
+          }
+          setLoadError(
+            "Failed to load daily puzzle. Please refresh and try again.",
+          );
+          return;
+        }
+
         const row = await res.json();
+
+        if (row.date && row.date !== selectedDate) setSelectedDate(row.date);
+        // keep in sync with server
+        setIsDateLoading(false);
+        setPrevDate(row.prev_date ?? null);
+        setNextDate(row.next_date ?? null);
         setPuzzleImageUrl(row.image_url ?? null);
 
         const teamNames: string[] = row.team ?? [];
         const elements: string[] = row.elements ?? [];
 
-        setState({
+        // base fresh puzzle state
+        const baseState: GameState = {
           ...initialState,
           puzzle: {
             ...initialState.puzzle,
@@ -111,19 +270,51 @@ export default function DailyPuzzle() {
             ],
             genshinUid: row.genshin_uid ?? null,
           },
-        });
+        };
 
-        setPreview([]);
+        // restore only if we're viewing TODAY and puzzleId matches
+        const isToday = row.date === todayUTC();
+        const run = loadTodayRun();
+
+        if (
+          isToday &&
+          run &&
+          run.date === row.date &&
+          run.puzzleId === String(row.id)
+        ) {
+          // rebuild state by replaying guesses in order
+          let rebuilt = baseState;
+          for (const g of run.guesses) {
+            rebuilt = makeGuess(rebuilt, { characters: g });
+          }
+
+          // preserve end state if they were already done
+          // (makeGuess already sets isWin/isOver based on tiles + lives)
+          setState(rebuilt);
+          setPreview(run.preview ?? []);
+        } else {
+          // if it's today but run is for a different puzzle, clear it
+          if (
+            isToday &&
+            run &&
+            run.date === row.date &&
+            run.puzzleId !== String(row.id)
+          ) {
+            clearTodayRun();
+          }
+          setState(baseState);
+        }
       } catch (e) {
-        console.error("Failed to load random puzzle:", e);
+        setIsDateLoading(false);
+        console.error("Failed to load daily puzzle:", e);
+        setLoadError(
+          "Failed to load daily puzzle. Please refresh and try again.",
+        );
       }
     };
 
     load();
-  }, []);
-
-  // Preview
-  const [preview, setPreview] = useState<string[]>([]);
+  }, [selectedDate, loadTodayRun, clearTodayRun, todayUTC]);
 
   const removePreviewAt = (index: number) => {
     setPreview((prev) => prev.filter((_, i) => i !== index));
@@ -133,6 +324,8 @@ export default function DailyPuzzle() {
 
   const answerPreview = state.puzzle.team.map((c) => c.name);
   const displaySlots = isGameOver ? answerPreview : preview;
+
+  const [isDateLoading, setIsDateLoading] = useState(false);
 
   // Characters that were ever GREEN / YELLOW (based on gridTiles)
   const correctCharacters = state.guessesSoFar.flatMap((g, i) =>
@@ -183,8 +376,34 @@ export default function DailyPuzzle() {
       : next;
 
     setState(finalState);
+    recordScoreIfToday(finalState);
+
     setPreview([]);
-  }, [preview, isGameOver, state]);
+    maybeSaveTodayRun(finalState, []);
+  }, [preview, isGameOver, state, recordScoreIfToday, maybeSaveTodayRun]);
+
+  useEffect(() => {
+    if (selectedDate !== todayUTC()) return;
+    if (!state.puzzle.id) return;
+
+    saveTodayRun({
+      date: selectedDate,
+      puzzleId: String(state.puzzle.id),
+      preview,
+      guesses: state.guessesSoFar.map((g) => g.characters),
+      isWin: state.isWin,
+      isOver: state.isOver,
+    });
+  }, [
+    preview,
+    selectedDate,
+    state.puzzle.id,
+    state.guessesSoFar,
+    state.isWin,
+    state.isOver,
+    saveTodayRun,
+    todayUTC,
+  ]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -239,6 +458,112 @@ export default function DailyPuzzle() {
         }
         statusColor={state.isWin ? "lightgreen" : "#ff6b6b"}
       />
+
+      {showStats && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}
+          onClick={() => setShowStats(false)}
+        >
+          <div
+            style={{
+              width: 520,
+              maxWidth: "92vw",
+              border: "1px solid #444",
+              borderRadius: 10,
+              background: "#1f1f1f",
+              padding: 14,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div style={{ fontWeight: 700 }}>Your Daily Results</div>
+              <button
+                onClick={() => setShowStats(false)}
+                style={{ width: 32, height: 32 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {(() => {
+              const bins = [1, 2, 3, 4, 5, "FAIL"] as const;
+              const counts: Record<(typeof bins)[number], number> = {
+                1: 0,
+                2: 0,
+                3: 0,
+                4: 0,
+                5: 0,
+                FAIL: 0,
+              };
+
+              for (const v of Object.values(scoresSnapshot)) {
+                if (v === "FAIL") counts.FAIL++;
+                else counts[v]++;
+              }
+
+              const max = Math.max(1, ...Object.values(counts));
+
+              return (
+                <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+                  {bins.map((b) => {
+                    const n = counts[b];
+                    const pct = (n / max) * 100;
+                    const label = b === "FAIL" ? "Fail" : String(b);
+
+                    return (
+                      <div
+                        key={label}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "40px 1fr 40px",
+                          gap: 10,
+                          alignItems: "center",
+                        }}
+                      >
+                        <div style={{ opacity: 0.85 }}>{label}</div>
+                        <div
+                          style={{
+                            height: 14,
+                            border: "1px solid #444",
+                            borderRadius: 6,
+                            overflow: "hidden",
+                            background: "#2a2a2a",
+                          }}
+                        >
+                          <div
+                            style={{
+                              height: "100%",
+                              width: `${pct}%`,
+                              background: "#555",
+                            }}
+                          />
+                        </div>
+                        <div style={{ textAlign: "right", opacity: 0.85 }}>
+                          {n}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
       <div style={{ padding: "1rem" }}>
         {/* ================= MAIN LAYOUT ================= */}
@@ -440,8 +765,111 @@ export default function DailyPuzzle() {
           </div>
 
           {/* ============== RIGHT SIDE ============== */}
-          {/* IMAGE */}
+
           <div style={{ width: "480px", flexShrink: 0 }}>
+            {/* DATE */}
+            <div
+              style={{
+                marginTop: "1rem",
+                marginBottom: "0.75rem",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 12,
+              }}
+            >
+              {!isDateLoading && prevDate ? (
+                <button
+                  onClick={() => setSelectedDate(prevDate)}
+                  aria-label="Previous day"
+                  title="Previous day"
+                  style={{
+                    width: 28,
+                    height: 32,
+                    padding: 0,
+                    border: "none",
+                    background: "transparent",
+                    color: "inherit",
+                    opacity: 0.9,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    lineHeight: 1,
+                    fontSize: 18,
+                  }}
+                >
+                  ◀
+                </button>
+              ) : (
+                <div style={{ width: 28, height: 32 }} />
+              )}
+
+              <div
+                style={{
+                  border: "1px solid #444",
+                  borderRadius: 10,
+                  padding: "6px 14px",
+                  background: "#1f1f1f",
+                  fontSize: 13,
+                  opacity: 0.95,
+                  userSelect: "none",
+                  minWidth: 130,
+                  height: 32,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {selectedDate}
+              </div>
+
+              {!isDateLoading && nextDate ? (
+                <button
+                  onClick={() => setSelectedDate(nextDate)}
+                  aria-label="Next day"
+                  title="Next day"
+                  style={{
+                    width: 28,
+                    height: 32,
+                    padding: 0,
+                    border: "none",
+                    background: "transparent",
+                    color: "inherit",
+                    opacity: 0.9,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    lineHeight: 1,
+                    fontSize: 18,
+                  }}
+                >
+                  ▶
+                </button>
+              ) : (
+                <div style={{ width: 28, height: 32 }} />
+              )}
+            </div>
+
+            {/* IMAGE */}
+            {loadError && (
+              <div
+                style={{
+                  marginTop: "1rem",
+                  marginBottom: "0.75rem",
+                  padding: 10,
+                  border: "1px solid #444",
+                  borderRadius: 8,
+                  background: "#1f1f1f",
+                  opacity: 0.95,
+                  fontSize: 13,
+                }}
+              >
+                {loadError}
+              </div>
+            )}
+
             {puzzleImageUrl && (
               <div style={{ marginTop: "1rem", marginBottom: "0.75rem" }}>
                 <img
