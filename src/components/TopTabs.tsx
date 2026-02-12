@@ -16,6 +16,7 @@ export default function TopTabs({
   const { pathname } = useLocation();
 
   const isGame = pathname === "/";
+  const isEndless = pathname === "/endless";
   const isSubmit = pathname === "/submit";
   const isRoadmap = pathname === "/roadmap";
 
@@ -47,7 +48,10 @@ export default function TopTabs({
         </Link>
         <div style={{ display: "flex", gap: 12 }}>
           <Link to="/" style={tabStyle(isGame)}>
-            Game
+            Daily
+          </Link>
+          <Link to="/endless" style={tabStyle(isEndless)}>
+            Endless
           </Link>
           <Link to="/submit" style={tabStyle(isSubmit)}>
             Submit

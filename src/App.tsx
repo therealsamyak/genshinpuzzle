@@ -16,6 +16,7 @@ function App() {
       <div style={{ flex: 1 }}>
         <Routes>
           <Route path="/" element={<DailyPuzzle />} />
+          <Route path="/endless" element={<DailyPuzzle mode="endless" />} />
           <Route path="/submit" element={<SubmitDummy />} />
           <Route path="/roadmap" element={<Roadmap />} />
           <Route path="*" element={<Navigate to="/" replace />} />
