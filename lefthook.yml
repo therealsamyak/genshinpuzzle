@@ -1,0 +1,10 @@
+pre-commit:
+  parallel: false
+  jobs:
+    - run: deno task lint {staged_files}
+      glob: "*.{ts,tsx}"
+      stage_fixed: true
+
+    - run: deno task format {staged_files}
+      glob: "*.{ts,tsx}"
+      stage_fixed: true

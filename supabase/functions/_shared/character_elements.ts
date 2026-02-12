@@ -1,5 +1,5 @@
 // AUTO-GENERATED. DO NOT EDIT.
-// Generated from src/game/characters.ts
+// Generated from src/game/characters.ts via scripts/generate_character_elements.ts
 
 export type Element = "Pyro" | "Hydro" | "Electro" | "Cryo" | "Dendro" | "Anemo" | "Geo" | "None";
 

@@ -56,11 +56,7 @@ export default function TopTabs({
             Roadmap
           </Link>
           {onShowScores ? (
-            <button
-              type="button"
-              onClick={onShowScores}
-              style={tabStyle(false)}
-            >
+            <button type="button" onClick={onShowScores} style={tabStyle(false)}>
               Scores
             </button>
           ) : null}

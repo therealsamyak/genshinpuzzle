@@ -1,13 +1,5 @@
 // src/game/types.ts
-export type Element =
-  | "Pyro"
-  | "Hydro"
-  | "Electro"
-  | "Cryo"
-  | "Anemo"
-  | "Geo"
-  | "Dendro"
-  | "None";
+export type Element = "Pyro" | "Hydro" | "Electro" | "Cryo" | "Anemo" | "Geo" | "Dendro" | "None";
 
 export interface TeamCharacter {
   name: string;
