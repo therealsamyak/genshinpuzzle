@@ -24,11 +24,10 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
 }
+
 
 h1 {
   font-size: 3.2em;
@@ -65,4 +64,19 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+
+  background: url("/background.png") no-repeat center center;
+  background-size: cover;
+
+  filter: blur(0px);
+  opacity: 0.05;
+  transform: scale(1.05);
 }
