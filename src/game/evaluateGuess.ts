@@ -11,7 +11,7 @@ export function evaluateGuess(guess: Guess, puzzleTeam: TeamCharacter[]): TileSt
   const tiles: TileState[] = ["GRAY", "GRAY", "GRAY", "GRAY"];
 
   // Track which puzzle indices have been used for green/yellow
-  const used = new Array(puzzleTeam.length).fill(false);
+  const used = Array.from({ length: puzzleTeam.length }, () => false);
 
   // Step 1: mark greens (character exists anywhere)
   for (let i = 0; i < guess.characters.length; i++) {

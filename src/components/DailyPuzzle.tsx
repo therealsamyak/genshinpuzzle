@@ -472,7 +472,8 @@ export default function DailyPuzzle() {
 
       {/* ================= STATS MODAL ================= */}
       {showStats && (
-        <div
+        <button
+          type="button"
           style={{
             position: "fixed",
             inset: 0,
@@ -481,10 +482,16 @@ export default function DailyPuzzle() {
             alignItems: "center",
             justifyContent: "center",
             zIndex: 9999,
+            border: "none",
+            padding: 0,
           }}
           onClick={() => setShowStats(false)}
+          aria-label="Close stats"
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            tabIndex={-1}
             style={{
               width: 520,
               maxWidth: "92vw",
@@ -494,6 +501,12 @@ export default function DailyPuzzle() {
               padding: 14,
             }}
             onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.stopPropagation();
+                setShowStats(false);
+              }
+            }}
           >
             <div
               style={{
@@ -579,7 +592,7 @@ export default function DailyPuzzle() {
               );
             })()}
           </div>
-        </div>
+        </button>
       )}
 
       <div style={{ padding: "1rem" }}>
@@ -608,9 +621,11 @@ export default function DailyPuzzle() {
                 const char = displaySlots[i];
 
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={i}
-                    onClick={() => !isGameOver && char && removePreviewAt(i)}
+                    disabled={!char || isGameOver}
+                    onClick={() => removePreviewAt(i)}
                     style={{
                       width: 72,
                       height: 72,
@@ -622,6 +637,7 @@ export default function DailyPuzzle() {
                       background: "#1f1f1f",
                       cursor: char ? "pointer" : "default",
                       opacity: char ? 1 : 0.6,
+                      padding: 0,
                     }}
                     title={char ? `${char} (click to remove)` : undefined}
                   >
@@ -636,7 +652,7 @@ export default function DailyPuzzle() {
                         }}
                       />
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
