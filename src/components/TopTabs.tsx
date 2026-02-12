@@ -55,9 +55,15 @@ export default function TopTabs({
           <Link to="/roadmap" style={tabStyle(isRoadmap)}>
             Roadmap
           </Link>
-          <button type="button" onClick={onShowScores} style={tabStyle(false)}>
-            Scores
-          </button>
+          {onShowScores ? (
+            <button
+              type="button"
+              onClick={onShowScores}
+              style={tabStyle(false)}
+            >
+              Scores
+            </button>
+          ) : null}
         </div>
         <div style={{ marginTop: 6, fontSize: 12, opacity: 0.65 }}>
           Made by{" "}

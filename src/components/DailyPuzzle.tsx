@@ -201,6 +201,21 @@ export default function DailyPuzzle() {
     writeTodayRun();
   }, [writeTodayRun]);
 
+  // -----------------------------
+  // DATE NAVIGATION HANDLER
+  // -----------------------------
+  const goToDate = (d: string) => {
+    // If we are leaving today's puzzle, persist progress first
+    persistTodayNow();
+
+    // Block autosave effects during transition render
+    setIsDateLoading(true);
+    setPrevDate(null);
+    setNextDate(null);
+
+    setSelectedDate(d);
+  };
+
   // Autosave whenever the run changes (today only, loaded puzzle only)
   useEffect(() => {
     writeTodayRun();
@@ -475,13 +490,20 @@ export default function DailyPuzzle() {
   const answerPreview = state.puzzle.team.map((c) => c.name);
   const displaySlots = isGameOver ? answerPreview : preview;
 
+  // Characters that were ever GREEN (exact match)
   const correctCharacters = state.guessesSoFar.flatMap((g, i) =>
     g.characters.filter((_, j) => state.gridTiles[i][j] === "GREEN"),
   );
 
+  // Characters that were ever totally wrong (GRAY)
+  const wrongCharacters = state.guessesSoFar.flatMap((g, i) =>
+    g.characters.filter((_, j) => state.gridTiles[i][j] === "GRAY"),
+  );
+
   const getGridBg = (name: string) => {
-    if (correctCharacters.includes(name)) return "#2f6f3a";
-    return "#2a2a2a";
+    if (correctCharacters.includes(name)) return "#2f6f3a"; // green
+    if (wrongCharacters.includes(name)) return "#1f1f1f"; // darker for wrong
+    return "#2a2a2a"; // neutral
   };
 
   // =========================================================
@@ -828,8 +850,7 @@ export default function DailyPuzzle() {
                 <button
                   onClick={() => {
                     // Flush today progress before leaving today
-                    persistTodayNow();
-                    setSelectedDate(prevDate);
+                    goToDate(prevDate);
                   }}
                   aria-label="Previous day"
                   title="Previous day"
@@ -877,8 +898,7 @@ export default function DailyPuzzle() {
               {!isDateLoading && nextDate ? (
                 <button
                   onClick={() => {
-                    persistTodayNow();
-                    setSelectedDate(nextDate);
+                    goToDate(nextDate);
                   }}
                   aria-label="Next day"
                   title="Next day"
