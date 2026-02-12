@@ -7,13 +7,5 @@
   "useTabs": false,
   "tabWidth": 2,
   "endOfLine": "lf",
-  "ignorePatterns": [
-    "**/build",
-    "**/public",
-    "bun.lock",
-    "routeTree.gen.ts",
-    "dist",
-    "node_modules",
-    "coverage"
-  ]
+  "ignorePatterns": ["dist", "node_modules", "supabase/functions/_shared/character_elements.ts"]
 }
