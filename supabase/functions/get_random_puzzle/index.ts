@@ -41,8 +41,8 @@ serve(async (req) => {
   // 1) count
   const { count, error: countErr } = await admin
     .from("dummy_submissions")
-    .select("id", { count: "exact", head: true });
-
+    .select("id", { count: "exact", head: true })
+    .is("featured_date", null);
   if (countErr) {
     return new Response("Count failed", {
       status: 500,
@@ -52,7 +52,7 @@ serve(async (req) => {
 
   const n = count ?? 0;
   if (n === 0) {
-    return new Response("No submissions", {
+    return new Response("No unused submissions", {
       status: 404,
       headers: corsHeaders,
     });
@@ -67,6 +67,7 @@ serve(async (req) => {
     .select(
       "id, team, elements, strongest_hit, total_dps, image_path, constellations, refinements, genshin_uid",
     )
+    .is("featured_date", null)
     .order("id", { ascending: true })
     .range(offset, offset)
     .maybeSingle();

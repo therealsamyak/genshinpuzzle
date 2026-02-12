@@ -1,11 +1,14 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { GameState, Guess, Element } from "../game/types";
 import { initialState } from "../game/initialState";
 import { makeGuess } from "../game/gameController";
 import { CHARACTER_DATA } from "../game/characters";
 import TopTabs from "./TopTabs";
 
-export default function DailyPuzzle() {
+type Props = { mode?: "daily" | "endless" };
+
+export default function DailyPuzzle({ mode = "daily" }: Props) {
+
   // =========================================================
   // 1) CONSTANTS + TYPES
   // =========================================================
@@ -116,11 +119,17 @@ export default function DailyPuzzle() {
   const [nextDate, setNextDate] = useState<string | null>(null);
   const [isDateLoading, setIsDateLoading] = useState(false);
 
+  const [endlessNonce, setEndlessNonce] = useState(0);
+
+  // Endless-only: avoid repeats within this session (best-effort)
+  const seenEndlessIdsRef = useRef<Set<string>>(new Set());
+
   // Used to avoid writing placeholder state into cookies mid-load
   const [loadedPuzzleId, setLoadedPuzzleId] = useState<string | null>(null);
 
   const isTodaySelected = selectedDate === todayUTC();
   const isGameOver = state.isWin || state.isOver;
+  const isEndless = mode === "endless";
 
   const revealAllHintsIfWin = (s: GameState): GameState => {
     if (!s.isWin) return s;
@@ -175,6 +184,7 @@ export default function DailyPuzzle() {
   // =========================================================
 
   const canPersistToday = useCallback(() => {
+    if (isEndless) return false;
     if (!isTodaySelected) return false;
     if (isDateLoading) return false;
     if (!loadedPuzzleId) return false;
@@ -235,6 +245,7 @@ export default function DailyPuzzle() {
 
   const recordScoreIfToday = useCallback(
     (finalState: GameState) => {
+      if (isEndless) return;
       if (selectedDate !== todayUTC()) return;
       if (!finalState.isOver) return;
 
@@ -262,7 +273,7 @@ export default function DailyPuzzle() {
 
   useEffect(() => {
     const load = async () => {
-      // Clear UI state immediately when switching date
+      // Clear UI state immediately when switching date / puzzle
       setLoadError(null);
       setPuzzleImageUrl(null);
       setPreview([]);
@@ -275,42 +286,84 @@ export default function DailyPuzzle() {
       setIsDateLoading(true);
 
       try {
-        const res = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get_daily_puzzle?date=${selectedDate}`,
-          {
+        const tryLimit = isEndless ? 6 : 1;
+        let row: any = null;
+
+        for (let attempt = 0; attempt < tryLimit; attempt++) {
+          const endpoint = isEndless
+            ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get_random_puzzle`
+            : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get_daily_puzzle?date=${selectedDate}`;
+
+          const res = await fetch(endpoint, {
             method: "GET",
             headers: {
               apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
               Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
             },
-          },
-        );
+          });
 
-        if (!res.ok) {
-          const text = await res.text();
-          setIsDateLoading(false);
+          if (!res.ok) {
+            const text = await res.text();
+            setIsDateLoading(false);
 
-          if (res.status === 404 && text.includes("No unused submissions left")) {
-            setLoadError("No daily puzzles available right now. Please check back later.");
+            if (!isEndless && res.status === 404 && text.includes("No unused submissions left")) {
+              setLoadError("No daily puzzles available right now. Please check back later.");
+              return;
+            }
+
+            setLoadError(
+              isEndless
+                ? "Failed to load endless puzzle. Please try again."
+                : "Failed to load daily puzzle. Please refresh and try again.",
+            );
             return;
           }
 
-          setLoadError("Failed to load daily puzzle. Please refresh and try again.");
+          const candidate = await res.json();
+
+          if (!isEndless) {
+            row = candidate;
+            break;
+          }
+
+          const idStr = String(candidate?.id ?? "");
+          if (!idStr) {
+            row = candidate;
+            break;
+          }
+
+          if (!seenEndlessIdsRef.current.has(idStr)) {
+            seenEndlessIdsRef.current.add(idStr);
+            row = candidate;
+            break;
+          }
+
+          // duplicate -> try again
+        }
+
+        if (!row) {
+          setIsDateLoading(false);
+          setLoadError("No new endless puzzles found right now. Try again later.");
           return;
         }
 
-        const row = await res.json();
-
-        // If server corrected date, update and let effect rerun
-        if (row.date && row.date !== selectedDate) {
+        // If server corrected date, update and let effect rerun (daily only)
+        if (!isEndless && row.date && row.date !== selectedDate) {
           setSelectedDate(row.date);
           setIsDateLoading(false);
           return;
         }
 
         setIsDateLoading(false);
-        setPrevDate(row.prev_date ?? null);
-        setNextDate(row.next_date ?? null);
+
+        if (!isEndless) {
+          setPrevDate(row.prev_date ?? null);
+          setNextDate(row.next_date ?? null);
+        } else {
+          setPrevDate(null);
+          setNextDate(null);
+        }
+
         setPuzzleImageUrl(row.image_url ?? null);
 
         const teamNames: string[] = row.team ?? [];
@@ -337,38 +390,57 @@ export default function DailyPuzzle() {
 
         setLoadedPuzzleId(String(row.id));
 
-        // Restore only for TODAY and only if puzzleId matches
-        const isToday = row.date === todayUTC();
-        const run = loadTodayRun();
+        // Restore only for TODAY + daily mode, only if puzzleId matches
+        if (!isEndless) {
+          const isToday = row.date === todayUTC();
+          const run = loadTodayRun();
 
-        if (isToday && run && run.date === row.date && run.puzzleId === String(row.id)) {
-          let rebuilt = baseState;
-          for (const g of run.guesses) {
-            rebuilt = makeGuess(rebuilt, { characters: g });
+          if (isToday && run && run.date === row.date && run.puzzleId === String(row.id)) {
+            let rebuilt = baseState;
+            for (const g of run.guesses) rebuilt = makeGuess(rebuilt, { characters: g });
+
+            setState(revealAllHintsIfWin(rebuilt));
+            setPreview(run.preview ?? []);
+            return;
           }
 
-          setState(revealAllHintsIfWin(rebuilt));
-          setPreview(run.preview ?? []);
-        } else {
           // If we're on today but cookie refers to a different puzzle, discard it
           if (isToday && run && run.date === row.date && run.puzzleId !== String(row.id)) {
             clearTodayRun();
           }
-          setState(baseState);
         }
+
+        setState(baseState);
       } catch (e) {
         setIsDateLoading(false);
-        console.error("Failed to load daily puzzle:", e);
-        setLoadError("Failed to load daily puzzle. Please refresh and try again.");
+        console.error("Failed to load puzzle:", e);
+        setLoadError(
+          isEndless
+            ? "Failed to load endless puzzle. Please try again."
+            : "Failed to load daily puzzle. Please refresh and try again.",
+        );
       }
     };
 
     load();
-  }, [selectedDate, todayUTC, loadTodayRun, clearTodayRun]);
+  }, [selectedDate, endlessNonce, isEndless, todayUTC, loadTodayRun, clearTodayRun]);
 
   // =========================================================
   // 8) GAMEPLAY CONTROLS
   // =========================================================
+
+  const nextEndlessPuzzle = () => {
+    if (!isEndless) return;
+
+    // clear current run UI immediately
+    setLoadError(null);
+    setPuzzleImageUrl(null);
+    setPreview([]);
+    setState(initialState);
+    setLoadedPuzzleId(null);
+
+    setEndlessNonce((n) => n + 1);
+  };
 
   const removePreviewAt = (index: number) => {
     setPreview((prev) => prev.filter((_, i) => i !== index));
@@ -810,95 +882,126 @@ export default function DailyPuzzle() {
 
           {/* ============== RIGHT SIDE ============== */}
           <div style={{ width: "480px", flexShrink: 0 }}>
-            {/* DATE */}
-            <div
-              style={{
-                marginTop: "1rem",
-                marginBottom: "0.75rem",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                gap: 12,
-              }}
-            >
-              {!isDateLoading && prevDate ? (
-                <button
-                  onClick={() => {
-                    // Flush today progress before leaving today
-                    goToDate(prevDate);
-                  }}
-                  aria-label="Previous day"
-                  title="Previous day"
-                  style={{
-                    width: 28,
-                    height: 32,
-                    padding: 0,
-                    border: "none",
-                    background: "transparent",
-                    color: "inherit",
-                    opacity: 0.9,
-                    cursor: "pointer",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    lineHeight: 1,
-                    fontSize: 18,
-                  }}
-                >
-                  ◀
-                </button>
-              ) : (
-                <div style={{ width: 28, height: 32 }} />
-              )}
 
+            {/* ENDLESS */}
+            {isEndless && (
               <div
                 style={{
+                  marginTop: "1rem",
+                  marginBottom: "0.75rem",
+                  padding: 10,
                   border: "1px solid #444",
-                  borderRadius: 10,
-                  padding: "6px 14px",
+                  borderRadius: 8,
                   background: "#1f1f1f",
-                  fontSize: 13,
                   opacity: 0.95,
-                  userSelect: "none",
-                  minWidth: 130,
-                  height: 32,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  fontSize: 13,
+                  lineHeight: 1.4,
                 }}
               >
-                {selectedDate}
+                Endless mode may show puzzles that could appear in a future Daily. There aren&apos;t enough
+                entries to fully separate the pools.
               </div>
+            )}
 
-              {!isDateLoading && nextDate ? (
-                <button
-                  onClick={() => {
-                    goToDate(nextDate);
-                  }}
-                  aria-label="Next day"
-                  title="Next day"
+            {isEndless && (
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: "0.75rem" }}>
+                <button type="button" onClick={nextEndlessPuzzle}>
+                  Next Puzzle
+                </button>
+              </div>
+            )}
+
+            {/* DATE */}
+            {!isEndless && (
+              <div
+                style={{
+                  marginTop: "1rem",
+                  marginBottom: "0.75rem",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
+                {!isDateLoading && prevDate ? (
+                  <button
+                    onClick={() => {
+                      // Flush today progress before leaving today
+                      goToDate(prevDate);
+                    }}
+                    aria-label="Previous day"
+                    title="Previous day"
+                    style={{
+                      width: 28,
+                      height: 32,
+                      padding: 0,
+                      border: "none",
+                      background: "transparent",
+                      color: "inherit",
+                      opacity: 0.9,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      lineHeight: 1,
+                      fontSize: 18,
+                    }}
+                  >
+                    ◀
+                  </button>
+                ) : (
+                  <div style={{ width: 28, height: 32 }} />
+                )}
+
+                <div
                   style={{
-                    width: 28,
+                    border: "1px solid #444",
+                    borderRadius: 10,
+                    padding: "6px 14px",
+                    background: "#1f1f1f",
+                    fontSize: 13,
+                    opacity: 0.95,
+                    userSelect: "none",
+                    minWidth: 130,
                     height: 32,
-                    padding: 0,
-                    border: "none",
-                    background: "transparent",
-                    color: "inherit",
-                    opacity: 0.9,
-                    cursor: "pointer",
-                    display: "inline-flex",
+                    display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    lineHeight: 1,
-                    fontSize: 18,
                   }}
                 >
-                  ▶
-                </button>
-              ) : (
-                <div style={{ width: 28, height: 32 }} />
-              )}
-            </div>
+                  {selectedDate}
+                </div>
+
+                {!isDateLoading && nextDate ? (
+                  <button
+                    onClick={() => {
+                      goToDate(nextDate);
+                    }}
+                    aria-label="Next day"
+                    title="Next day"
+                    style={{
+                      width: 28,
+                      height: 32,
+                      padding: 0,
+                      border: "none",
+                      background: "transparent",
+                      color: "inherit",
+                      opacity: 0.9,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      lineHeight: 1,
+                      fontSize: 18,
+                    }}
+                  >
+                    ▶
+                  </button>
+                ) : (
+                  <div style={{ width: 28, height: 32 }} />
+                )}
+              </div>
+            )}
 
             {/* IMAGE */}
             {loadError && (
