@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "rebuild": "rm -rf node_modules && rm -rf dist && deno install && npm run build",
     "lint": "oxlint --fix .",
     "format": "oxfmt .",
     "check": "deno task format && deno task lint",
@@ -17,9 +18,11 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.95.3",
+    "@tailwindcss/vite": "^4.1.18",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-router-dom": "^7.13.0"
+    "react-router-dom": "^7.13.0",
+    "tailwindcss": "^4.1.18"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
