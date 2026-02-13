@@ -101,6 +101,9 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
     ),
   );
 
+  const [showShare, setShowShare] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+
   const [showStats, setShowStats] = useState(false);
   const [scoresSnapshot, setScoresSnapshot] = useState<Record<string, DailyScore>>(() =>
     loadScores(),
@@ -548,6 +551,43 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
     return "#2a2a2a"; // neutral
   };
 
+  const canShare =
+    mode === "daily" &&
+    selectedDate === todayUTC() &&
+    isGameOver;
+
+  const tileToEmoji = (t: string) => (t === "GREEN" ? "🟩" : t === "YELLOW" ? "🟨" : "⬛");
+
+  const buildShareText = (finalState: GameState) => {
+    const isFail = !finalState.isWin && finalState.isOver;
+    const scoreText = isFail ? "FAIL" : `${finalState.guessesSoFar.length}/5`;
+    
+    const header =
+    mode === "endless"
+    ? `Dummle Endless, ${scoreText}`
+    : `Dummle ${selectedDate}, ${scoreText}`;
+    
+    const lines = finalState.gridTiles
+    .slice(0, finalState.guessesSoFar.length)
+    .map((row) => row.map(tileToEmoji).join(""));
+    
+    return [header, ...lines].join("\n");
+  };
+
+  const sharePreviewText = canShare ? buildShareText(state) : "";
+
+  const openShare = () => {
+    if (!canShare) return;
+    setShareCopied(false);
+    setShowShare(true);
+  };
+
+  const copyShareText = async () => {
+    const text = buildShareText(state);
+    await navigator.clipboard.writeText(text);
+    setShareCopied(true);
+  };
+
   // =========================================================
   // 11) RENDER
   // =========================================================
@@ -556,10 +596,7 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
     <div style={{ minHeight: "100vh" }}>
       <TopTabs
         onShowScores={() => setShowStats(true)}
-        statusText={isGameOver ? (state.isWin ? "You solved the puzzle" : "Game Over") : undefined}
-        statusColor={state.isWin ? "lightgreen" : "#ff6b6b"}
       />
-
       {/* ================= STATS MODAL ================= */}
       {showStats && (
         <button
@@ -681,6 +718,94 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
                 </div>
               );
             })()}
+          </div>
+        </button>
+      )}
+
+      {/* ================= SHARE MODAL ================= */}
+
+      {showShare && (
+        <button
+          type="button"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            border: "none",
+            padding: 0,
+          }}
+          onClick={() => setShowShare(false)}
+          aria-label="Close share"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            tabIndex={-1}
+            style={{
+              width: 520,
+              maxWidth: "92vw",
+              border: "1px solid #444",
+              borderRadius: 10,
+              background: "#1f1f1f",
+              padding: 14,
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.stopPropagation();
+                setShowShare(false);
+              }
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 10,
+              }}
+            >
+              <div style={{ fontWeight: 700 }}>Share</div>
+              <button
+                onClick={() => setShowShare(false)}
+                style={{
+                  width: 32,
+                  height: 32,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div
+              style={{
+                padding: 12,
+                border: "1px solid #444",
+                borderRadius: 8,
+                background: "#151515",
+                fontFamily: "monospace",
+                fontSize: 14,
+                whiteSpace: "pre",
+                lineHeight: 1.4,
+                overflowX: "auto",
+              }}
+            >
+              {buildShareText(state)}
+            </div>
+
+            <div style={{ marginTop: 12, display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button type="button" onClick={copyShareText}>
+                {shareCopied ? "Copied" : "Copy to clipboard"}
+              </button>
+            </div>
           </div>
         </button>
       )}
@@ -1232,6 +1357,29 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
                 })}
               </div>
             ))}
+      
+            {isGameOver && (
+              <div
+                style={{
+                  marginTop: "1rem",
+                  fontSize: "1.2rem",
+                  fontWeight: 700,
+                  color: state.isWin ? "lightgreen" : "#ff6b6b",
+                }}
+              >
+                {state.isWin ? "You solved the puzzle" : "Game Over"}
+                {canShare && (
+                  <div style={{ marginTop: "1rem", display: "flex", gap: 8 }}>
+                    <button type="button" onClick={() => setShowStats(true)}>
+                      Scores
+                    </button>
+                    <button type="button" onClick={openShare}>
+                      Share
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}            
           </div>
         </div>
       </div>
