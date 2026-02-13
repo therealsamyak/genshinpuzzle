@@ -574,8 +574,6 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
     return [header, ...lines].join("\n");
   };
 
-  const sharePreviewText = canShare ? buildShareText(state) : "";
-
   const openShare = () => {
     if (!canShare) return;
     setShareCopied(false);
