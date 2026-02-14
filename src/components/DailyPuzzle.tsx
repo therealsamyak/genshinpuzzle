@@ -1224,6 +1224,19 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
                   : ""}
               </div>
 
+              {/* Total DPS */}
+              <button
+                style={{ width: "100%" }}
+                disabled={!state.clueState.totalDpsUnlocked || state.clueState.totalDpsRevealed}
+                onClick={() => revealHint("totalDps")}
+              >
+                Total DPS
+              </button>
+
+              <div style={{ minHeight: 22, opacity: 0.9 }}>
+                {state.clueState.totalDpsRevealed ? state.puzzle.totalDps : ""}
+              </div>
+
               {/* Strongest Hit */}
               <button
                 style={{ width: "100%" }}
@@ -1237,19 +1250,6 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
 
               <div style={{ minHeight: 22, opacity: 0.9 }}>
                 {state.clueState.strongestHitRevealed ? state.puzzle.strongestHit : ""}
-              </div>
-
-              {/* Total DPS */}
-              <button
-                style={{ width: "100%" }}
-                disabled={!state.clueState.totalDpsUnlocked || state.clueState.totalDpsRevealed}
-                onClick={() => revealHint("totalDps")}
-              >
-                Total DPS
-              </button>
-
-              <div style={{ minHeight: 22, opacity: 0.9 }}>
-                {state.clueState.totalDpsRevealed ? state.puzzle.totalDps : ""}
               </div>
 
               {/* Elements */}

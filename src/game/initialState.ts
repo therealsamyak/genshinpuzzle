@@ -43,7 +43,7 @@ export const initialState: GameState = {
   gridTiles: Array.from({ length: 6 }, () => Array<TileState>(4).fill("GRAY")),
   clueState: {
     strongestHitUnlocked: false,
-    totalDpsUnlocked: false,
+    totalDpsUnlocked: true,
     elementsUnlocked: false,
     constellationsRefinementsUnlocked: true,
 
