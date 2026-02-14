@@ -566,7 +566,7 @@ export default function SubmitDummy() {
               <div style={{ marginTop: 10 }}>
                 <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>Example</div>
                 <img
-                  src="/genshinpuzzle/example-submission.png"
+                  src="example-submission.png"
                   alt="Example submission"
                   style={{
                     width: "100%",
