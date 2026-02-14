@@ -8,7 +8,6 @@ import TopTabs from "./TopTabs";
 type Props = { mode?: "daily" | "endless" };
 
 export default function DailyPuzzle({ mode = "daily" }: Props) {
-
   // =========================================================
   // 1) CONSTANTS + TYPES
   // =========================================================
@@ -193,7 +192,7 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
     if (!loadedPuzzleId) return false;
     if (String(state.puzzle.id) !== loadedPuzzleId) return false;
     return true;
-  }, [isTodaySelected, isDateLoading, loadedPuzzleId, state.puzzle.id]);
+  }, [isEndless, isTodaySelected, isDateLoading, loadedPuzzleId, state.puzzle.id]);
 
   const writeTodayRun = useCallback(() => {
     if (!canPersistToday()) return;
@@ -267,7 +266,7 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
       setScoresSnapshot(scores);
       setShowStats(true);
     },
-    [selectedDate, todayUTC, loadScores, saveScores],
+    [isEndless, selectedDate, todayUTC, loadScores, saveScores],
   );
 
   // =========================================================
@@ -551,26 +550,21 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
     return "#2a2a2a"; // neutral
   };
 
-  const canShare =
-    mode === "daily" &&
-    selectedDate === todayUTC() &&
-    isGameOver;
+  const canShare = mode === "daily" && selectedDate === todayUTC() && isGameOver;
 
   const tileToEmoji = (t: string) => (t === "GREEN" ? "🟩" : t === "YELLOW" ? "🟨" : "⬛");
 
   const buildShareText = (finalState: GameState) => {
     const isFail = !finalState.isWin && finalState.isOver;
     const scoreText = isFail ? "FAIL" : `${finalState.guessesSoFar.length}/5`;
-    
+
     const header =
-    mode === "endless"
-    ? `Dummle Endless, ${scoreText}`
-    : `Dummle ${selectedDate}, ${scoreText}`;
-    
+      mode === "endless" ? `Dummle Endless, ${scoreText}` : `Dummle ${selectedDate}, ${scoreText}`;
+
     const lines = finalState.gridTiles
-    .slice(0, finalState.guessesSoFar.length)
-    .map((row) => row.map(tileToEmoji).join(""));
-    
+      .slice(0, finalState.guessesSoFar.length)
+      .map((row) => row.map(tileToEmoji).join(""));
+
     return [header, ...lines].join("\n");
   };
 
@@ -592,9 +586,7 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
 
   return (
     <div style={{ minHeight: "100vh" }}>
-      <TopTabs
-        onShowScores={() => setShowStats(true)}
-      />
+      <TopTabs onShowScores={() => setShowStats(true)} />
       {/* ================= STATS MODAL ================= */}
       {showStats && (
         <button
@@ -1005,7 +997,6 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
 
           {/* ============== RIGHT SIDE ============== */}
           <div style={{ width: "480px", flexShrink: 0 }}>
-
             {/* ENDLESS */}
             {isEndless && (
               <div
@@ -1021,8 +1012,8 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
                   lineHeight: 1.4,
                 }}
               >
-                Endless mode may show puzzles that could appear in a future Daily. There aren&apos;t enough
-                entries to fully separate the pools.
+                Endless mode may show puzzles that could appear in a future Daily. There aren&apos;t
+                enough entries to fully separate the pools.
               </div>
             )}
 
@@ -1355,7 +1346,7 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
                 })}
               </div>
             ))}
-      
+
             {isGameOver && (
               <div
                 style={{
@@ -1377,7 +1368,7 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
                   </div>
                 )}
               </div>
-            )}            
+            )}
           </div>
         </div>
       </div>
