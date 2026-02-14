@@ -1,5 +1,5 @@
 // AUTO-GENERATED. DO NOT EDIT.
-// Generated from src/game/characters.ts via scripts/generate_character_elements.ts
+// Generated from characters.xlsx via scripts/generate_characters_from_excel.py
 
 export type Element = "Pyro" | "Hydro" | "Electro" | "Cryo" | "Dendro" | "Anemo" | "Geo" | "None";
 
@@ -95,12 +95,12 @@ export const CHARACTER_ELEMENTS: Record<string, Element> = {
   "Tartaglia": "Hydro",
   "Thoma": "Pyro",
   "Tighnari": "Dendro",
-  "Anemo Traveler": "Anemo",
-  "Geo Traveler": "Geo",
-  "Electro Traveler": "Electro",
-  "Dendro Traveler": "Dendro",
-  "Hydro Traveler": "Hydro",
-  "Pyro Traveler": "Pyro",
+  "Traveler (Anemo)": "Anemo",
+  "Traveler (Geo)": "Geo",
+  "Traveler (Electro)": "Electro",
+  "Traveler (Dendro)": "Dendro",
+  "Traveler (Hydro)": "Hydro",
+  "Traveler (Pyro)": "Pyro",
   "Varesa": "Electro",
   "Venti": "Anemo",
   "Wanderer": "Anemo",

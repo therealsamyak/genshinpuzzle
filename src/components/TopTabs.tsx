@@ -17,6 +17,7 @@ export default function TopTabs({
 
   const isGame = pathname === "/";
   const isEndless = pathname === "/endless";
+  const isOptions = pathname === "/options";
   const isSubmit = pathname === "/submit";
   const isRoadmap = pathname === "/roadmap";
 
@@ -53,6 +54,9 @@ export default function TopTabs({
           <Link to="/endless" style={tabStyle(isEndless)}>
             Endless
           </Link>
+          <Link to="/options" style={tabStyle(isOptions)}>
+            Options
+          </Link>
           <Link to="/submit" style={tabStyle(isSubmit)}>
             Submit
           </Link>
@@ -75,7 +79,7 @@ export default function TopTabs({
           >
             Watchful
           </a>
-          <text> | Version 0.8</text>
+          <text> | Version 0.9</text>
           <br></br>
           <text>Conceptualised by </text>
           <a

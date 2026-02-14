@@ -4,6 +4,7 @@ import { initialState } from "../game/initialState";
 import { makeGuess } from "../game/gameController";
 import { CHARACTER_DATA } from "../game/characters";
 import TopTabs from "./TopTabs";
+import { useSettings } from "../context/SettingsContext";
 
 type Props = { mode?: "daily" | "endless" };
 
@@ -89,6 +90,16 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
   // 3) UI + GAME STATE
   // =========================================================
 
+  const { characterOrder, autoRevealHints } = useSettings();
+
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearchResults, setShowSearchResults] = useState(false);
+
   const [filterMode, setFilterMode] = useState<"all" | "elements">("all");
 
   const [activeElements, setActiveElements] = useState<Record<Element, boolean>>(() =>
@@ -147,6 +158,25 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
         totalDpsRevealed: true,
         elementsRevealed: true,
         constellationsRefinementsUnlocked: true,
+        constellationsRefinementsRevealed: true,
+      },
+    };
+  };
+
+  const revealAllHintsIfOver = (s: GameState): GameState => {
+    if (!s.isOver) return s;
+    return {
+      ...s,
+      clueState: {
+        ...s.clueState,
+        strongestHitUnlocked: true,
+        totalDpsUnlocked: true,
+        elementsUnlocked: true,
+        constellationsRefinementsUnlocked: true,
+
+        strongestHitRevealed: true,
+        totalDpsRevealed: true,
+        elementsRevealed: true,
         constellationsRefinementsRevealed: true,
       },
     };
@@ -472,27 +502,30 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
     const guess: Guess = { characters: preview };
     const next = makeGuess(state, guess);
 
-    const finalState = next.isWin
-      ? {
-          ...next,
-          clueState: {
-            ...next.clueState,
-            strongestHitUnlocked: true,
-            totalDpsUnlocked: true,
-            elementsUnlocked: true,
-            strongestHitRevealed: true,
-            totalDpsRevealed: true,
-            elementsRevealed: true,
-            constellationsRefinementsUnlocked: true,
-            constellationsRefinementsRevealed: true,
-          },
-        }
-      : next;
+    let finalState = next;  
 
+    // If the run is over (win OR fail), reveal everything.
+    finalState = revealAllHintsIfOver(finalState);
+    
     setState(finalState);
     recordScoreIfToday(finalState);
 
-    setPreview([]);
+    if (!finalState.isWin) {
+      const lastRowIndex = finalState.guessesSoFar.length - 1;
+
+      const greens: string[] = [];
+
+      finalState.guessesSoFar[lastRowIndex].characters.forEach((char, idx) => {
+        if (finalState.gridTiles[lastRowIndex][idx] === "GREEN") {
+          greens.push(char);
+        }
+      });
+
+      setPreview(greens);
+    } else {
+      setPreview([]);
+    }
+
     // No manual today-run write needed; autosave will run
   }, [preview, isGameOver, state, recordScoreIfToday]);
 
@@ -501,8 +534,16 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
       if (isGameOver) return;
 
       if (e.key === "Backspace") {
-        e.preventDefault();
-        removeLastPreview();
+        const target = e.target as HTMLElement;
+        const isInput =
+          target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable;
+
+        if (!isInput) {
+          e.preventDefault();
+          removeLastPreview();
+        }
       }
 
       if (e.key === "Enter") {
@@ -532,6 +573,55 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
   // 10) DERIVED RENDER VALUES
   // =========================================================
 
+  useEffect(() => {
+    if (!autoRevealHints) return;
+
+    setState((prev) => {
+      const cs = prev.clueState;
+
+      const next = {
+        ...cs,
+        constellationsRefinementsRevealed:
+          cs.constellationsRefinementsUnlocked ? true : cs.constellationsRefinementsRevealed,
+        totalDpsRevealed: cs.totalDpsUnlocked ? true : cs.totalDpsRevealed,
+        strongestHitRevealed: cs.strongestHitUnlocked ? true : cs.strongestHitRevealed,
+        elementsRevealed: cs.elementsUnlocked ? true : cs.elementsRevealed,
+      };
+
+      // no changes -> no rerender loop
+      if (
+        next.constellationsRefinementsRevealed === cs.constellationsRefinementsRevealed &&
+        next.totalDpsRevealed === cs.totalDpsRevealed &&
+        next.strongestHitRevealed === cs.strongestHitRevealed &&
+        next.elementsRevealed === cs.elementsRevealed
+      ) {
+        return prev;
+      }
+
+      return { ...prev, clueState: next };
+    });
+  }, [autoRevealHints, state.clueState]);
+
+  useEffect(() => {
+    if (!showSearchResults) return;
+
+    const el = itemRefs.current[highlightedIndex];
+    if (el) {
+      el.scrollIntoView({ block: "nearest" });
+    }
+  }, [highlightedIndex, showSearchResults]);
+
+  const sortedCharacterNames = Object.keys(CHARACTER_DATA).sort((a, b) =>
+    a.localeCompare(b),
+  );
+
+  const filteredSearchResults =
+    searchQuery.trim().length === 0
+      ? sortedCharacterNames
+      : sortedCharacterNames.filter((name) =>
+          name.toLowerCase().includes(searchQuery.toLowerCase()),
+        );
+
   const answerPreview = state.puzzle.team.map((c) => c.name);
   const displaySlots = isGameOver ? answerPreview : preview;
 
@@ -539,6 +629,8 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
   const correctCharacters = state.guessesSoFar.flatMap((g, i) =>
     g.characters.filter((_, j) => state.gridTiles[i][j] === "GREEN"),
   );
+
+  const correctCharacterSet = new Set(correctCharacters);
 
   // Characters that were ever totally wrong (GRAY)
   const wrongCharacters = state.guessesSoFar.flatMap((g, i) =>
@@ -847,7 +939,10 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      background: "#1f1f1f",
+                      background:
+                        char && correctCharacterSet.has(char)
+                          ? "#2f6f3a"
+                          : "#1f1f1f",
                       cursor: char ? "pointer" : "default",
                       opacity: char ? 1 : 0.6,
                       padding: 0,
@@ -871,18 +966,150 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
             </div>
 
             {/* Controls */}
-            <div style={{ textAlign: "center", marginBottom: "1rem" }}>
+            <div
+              style={{
+                textAlign: "center",
+                marginBottom: "1rem",
+                display: "flex",
+                justifyContent: "center",
+                gap: "0.5rem",
+                alignItems: "center",
+                position: "relative",
+              }}
+            >
               <button
                 onClick={submitGuess}
                 disabled={preview.length !== 4 || isGameOver}
-                style={{ marginRight: "0.5rem" }}
               >
                 Submit Guess
               </button>
 
-              <button onClick={removeLastPreview} disabled={preview.length === 0 || isGameOver}>
+              <button
+                onClick={removeLastPreview}
+                disabled={preview.length === 0 || isGameOver}
+              >
                 Backspace
               </button>
+
+              {/* SEARCH */}
+              <div style={{ position: "relative" }}>
+                <input
+                  onBlur={() => {
+                    setTimeout(() => {
+                      setSearchQuery("");
+                      setShowSearchResults(false);
+                    }, 100);
+                  }}
+                  onKeyDown={(e) => {
+                    if (!showSearchResults) return;
+
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setHighlightedIndex((prev) =>
+                        prev < filteredSearchResults.length - 1 ? prev + 1 : prev,
+                      );
+                    }
+
+                    if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+                    }
+
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const name = filteredSearchResults[highlightedIndex];
+                      if (name) {
+                        addToPreview(name);
+                        setSearchQuery("");
+                        setShowSearchResults(false);
+                        setHighlightedIndex(0);
+                      }
+                    }
+                  }}
+                  type="text"
+                  value={searchQuery}
+                  placeholder="Search..."
+                  disabled={isGameOver}
+                  onFocus={() => {
+                    setShowSearchResults(true);
+                    setHighlightedIndex(0);
+                  }}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setShowSearchResults(true);
+                    setHighlightedIndex(0);
+                  }}
+                  style={{
+                    height: 40,
+                    padding: "0 0.75rem",
+                    borderRadius: 8,
+                    border: "1px solid transparent",
+                    fontSize: "1em",
+                    fontWeight: 500,
+                    fontFamily: "inherit",
+                    backgroundColor: "#1a1a1a",
+                    color: "inherit",
+                    outline: "none",
+                    width: 180,
+                  }}
+                />
+
+                {showSearchResults && filteredSearchResults.length > 0 && (
+                  <div
+                    ref={dropdownRef}
+                    style={{
+                      position: "absolute",
+                      top: "110%",
+                      left: 0,
+                      width: 220,
+                      maxHeight: 260,
+                      overflowY: "auto",
+                      border: "1px solid #444",
+                      borderRadius: 8,
+                      background: "#1a1a1a",
+                      zIndex: 50,
+                      padding: 6,
+                    }}
+                  >
+                    {filteredSearchResults.map((name, index) => (
+                      <button
+                        ref={(el) => {
+                          itemRefs.current[index] = el;
+                        }}
+                        key={name}
+                        type="button"
+                        onMouseEnter={() => setHighlightedIndex(index)}
+                        onClick={() => {
+                          addToPreview(name);
+                          setSearchQuery("");
+                          setShowSearchResults(false);
+                          setHighlightedIndex(0);
+                        }}
+                        style={{
+                          width: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "4px 6px",
+                          borderRadius: 6,
+                          border: "none",
+                          background: index === highlightedIndex ? "#2a2a2a" : "transparent",
+                          color: "inherit",
+                          cursor: "pointer",
+                          textAlign: "left",
+                        }}
+                      >
+                        <img
+                          src={CHARACTER_DATA[name].iconUrl}
+                          alt={name}
+                          style={{ width: 24, height: 24 }}
+                        />
+                        <span style={{ fontSize: 14 }}>{name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Element Filters */}
@@ -968,6 +1195,18 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
               }}
             >
               {Object.entries(CHARACTER_DATA)
+                .sort(([aKey, a], [bKey, b]) => {
+                  if (characterOrder === "name") {
+                    return a.name.localeCompare(b.name);
+                  }
+
+                  // release order first, then name
+                  if (a.releaseDate !== b.releaseDate) {
+                    return a.releaseDate.localeCompare(b.releaseDate);
+                  }
+
+                  return a.name.localeCompare(b.name);
+                })
                 .filter((entry) => {
                   const data = entry[1];
                   if (filterMode === "all") return true;
