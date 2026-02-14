@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import TopTabs from "./TopTabs";
 import type { Element } from "../game/types";
 import { CHARACTER_DATA } from "../game/characters";
+import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 
 type Constellation = "Hidden" | "C0" | "C1" | "C2" | "C3" | "C4" | "C5" | "C6";
 type Refinement = "Hidden" | "R0" | "R1" | "R2" | "R3" | "R4" | "R5";
@@ -90,28 +91,9 @@ export default function SubmitDummy() {
     removePreviewAt(lastIndex);
   };
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Backspace") return;
-
-      const el = e.target as HTMLElement | null;
-      const tag = el?.tagName?.toLowerCase();
-      if (tag === "input" || tag === "textarea" || tag === "select") return;
-
-      e.preventDefault();
-
-      const lastIndex = [...preview]
-        .map((c, i) => (c ? i : -1))
-        .filter((i) => i !== -1)
-        .pop();
-
-      if (lastIndex == null) return;
-      removePreviewAt(lastIndex);
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [preview]);
+  useKeyboardShortcuts({
+    onBackspace: removeLastPreview,
+  });
 
   /* ================= File Picking ================= */
 
@@ -221,6 +203,14 @@ export default function SubmitDummy() {
       },
       {} as Record<Element, boolean>,
     ),
+  );
+
+  const filteredCharacters = useMemo(
+    () =>
+      Object.entries(CHARACTER_DATA).filter(
+        ([_, data]) => filterMode === "all" || activeElements[data.element as Element],
+      ),
+    [filterMode, activeElements],
   );
 
   const clickAll = () => {
@@ -363,7 +353,7 @@ export default function SubmitDummy() {
                         }}
                         title={char ? `${char} (click to remove)` : undefined}
                       >
-                        {char && (
+                        {char ? (
                           <img
                             src={CHARACTER_DATA[char].iconUrl}
                             alt={char}
@@ -373,7 +363,7 @@ export default function SubmitDummy() {
                               pointerEvents: "none",
                             }}
                           />
-                        )}
+                        ) : null}
                       </button>
 
                       {/* Constellation (directly under portrait) */}
@@ -517,39 +507,33 @@ export default function SubmitDummy() {
                 width: "100%",
               }}
             >
-              {Object.entries(CHARACTER_DATA)
-                .filter((entry) => {
-                  const data = entry[1];
-                  if (filterMode === "all") return true;
-                  return activeElements[data.element as Element];
-                })
-                .map(([name]) => (
-                  <button
-                    key={name}
-                    onClick={() => addToPreview(name)}
-                    title={name}
+              {filteredCharacters.map(([name]) => (
+                <button
+                  key={name}
+                  onClick={() => addToPreview(name)}
+                  title={name}
+                  style={{
+                    width: 64,
+                    height: 64,
+                    padding: 4,
+                    borderRadius: 6,
+                    border: "1px solid #444",
+                    background: preview.includes(name) ? "#3a3a3a" : "#2a2a2a",
+                    cursor: "pointer",
+                  }}
+                >
+                  <img
+                    src={CHARACTER_DATA[name].iconUrl}
+                    alt={name}
                     style={{
-                      width: 64,
-                      height: 64,
-                      padding: 4,
-                      borderRadius: 6,
-                      border: "1px solid #444",
-                      background: preview.includes(name) ? "#3a3a3a" : "#2a2a2a",
-                      cursor: "pointer",
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                      pointerEvents: "none",
                     }}
-                  >
-                    <img
-                      src={CHARACTER_DATA[name].iconUrl}
-                      alt={name}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "contain",
-                        pointerEvents: "none",
-                      }}
-                    />
-                  </button>
-                ))}
+                  />
+                </button>
+              ))}
             </div>
           </div>
 
@@ -587,15 +571,15 @@ export default function SubmitDummy() {
                 accept="image/png"
                 onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
               />
-              {file && !fileError && (
+              {file && !fileError ? (
                 <div style={{ marginTop: 6 }}>
                   {file.name} ({Math.round(file.size / 1024)} KB)
                 </div>
-              )}
-              {fileError && <div style={{ marginTop: 6, color: "#ff6b6b" }}>{fileError}</div>}
+              ) : null}
+              {fileError ? <div style={{ marginTop: 6, color: "#ff6b6b" }}>{fileError}</div> : null}
             </div>
 
-            {imagePreviewUrl && !fileError && (
+            {imagePreviewUrl && !fileError ? (
               <div style={{ marginTop: 12 }}>
                 <div style={{ fontWeight: 700, marginBottom: 6 }}>Preview</div>
                 <img
@@ -610,7 +594,7 @@ export default function SubmitDummy() {
                   }}
                 />
               </div>
-            )}
+            ) : null}
             <h3 style={{ marginTop: 0 }}>Hints</h3>
 
             <div
@@ -667,12 +651,12 @@ export default function SubmitDummy() {
               />
             </div>
 
-            {(!strongest.ok || !dps.ok) && (
+            {!strongest.ok || !dps.ok ? (
               <div style={{ marginTop: 8, color: "#ff6b6b", fontSize: 12 }}>
-                {!strongest.ok && <div>Strongest Hit: {strongest.err}</div>}
-                {!dps.ok && <div>Total DPS: {dps.err}</div>}
+                {!strongest.ok ? <div>Strongest Hit: {strongest.err}</div> : null}
+                {!dps.ok ? <div>Total DPS: {dps.err}</div> : null}
               </div>
-            )}
+            ) : null}
 
             <div style={{ marginTop: 16 }}>
               <button
@@ -683,19 +667,21 @@ export default function SubmitDummy() {
                 {isSubmitting ? "Submitting..." : "Submit Dummy"}
               </button>
 
-              {submitError && <div style={{ marginTop: 10, color: "#ff6b6b" }}>{submitError}</div>}
+              {submitError ? (
+                <div style={{ marginTop: 10, color: "#ff6b6b" }}>{submitError}</div>
+              ) : null}
 
-              {submissionId && (
+              {submissionId ? (
                 <div style={{ marginTop: 10 }}>
                   Submission ID: <b>{submissionId}</b>
                 </div>
-              )}
+              ) : null}
 
-              {!isValid && (
+              {!isValid ? (
                 <div style={{ marginTop: 8, opacity: 0.8, fontSize: 12 }}>
                   Required: PNG ≤ 1MB, select 4 unique characters, and enter both numbers.
                 </div>
-              )}
+              ) : null}
               <div style={{ marginBottom: 12, opacity: 0.9 }}>
                 <br></br>
                 Currently there is no functionality to remove or edit entries you submit, but in the

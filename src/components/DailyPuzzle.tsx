@@ -1,9 +1,12 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import type { GameState, Guess, Element } from "../game/types";
 import { initialState } from "../game/initialState";
 import { makeGuess } from "../game/gameController";
 import { CHARACTER_DATA } from "../game/characters";
 import TopTabs from "./TopTabs";
+import { useCookieStorage } from "../hooks/useCookie";
+import { usePuzzle } from "../hooks/usePuzzle";
+import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 
 type Props = { mode?: "daily" | "endless" };
 
@@ -28,61 +31,17 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
   const STATS_COOKIE = "gdg_daily_scores_v1";
   const TODAY_RUN_COOKIE = "gdg_today_run_v1";
 
-  // =========================================================
-  // 2) COOKIE HELPERS (pure I/O)
-  // =========================================================
-
-  const getCookie = useCallback((name: string): string | null => {
-    const parts = document.cookie.split("; ").map((p) => p.split("="));
-    const hit = parts.find(([k]) => k === name);
-    return hit ? decodeURIComponent(hit[1] ?? "") : null;
-  }, []);
-
-  const setCookie = useCallback((name: string, value: string, days = 365) => {
-    const maxAge = days * 24 * 60 * 60;
-    document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${maxAge}; Path=/; SameSite=Lax`;
-  }, []);
-
   const todayUTC = useCallback(() => new Date().toISOString().slice(0, 10), []);
 
-  const loadScores = useCallback((): Record<string, DailyScore> => {
-    try {
-      const raw = getCookie(STATS_COOKIE);
-      if (!raw) return {};
-      const parsed = JSON.parse(raw) as Record<string, DailyScore>;
-      return parsed && typeof parsed === "object" ? parsed : {};
-    } catch {
-      return {};
-    }
-  }, [getCookie]);
-
-  const saveScores = useCallback(
-    (scores: Record<string, DailyScore>) => {
-      setCookie(STATS_COOKIE, JSON.stringify(scores), 365);
-    },
-    [setCookie],
+  const [scoresSnapshot, setScoresSnapshot] = useCookieStorage<Record<string, DailyScore>>(
+    STATS_COOKIE,
+    {},
   );
-
-  const loadTodayRun = useCallback((): TodayRunSnapshot | null => {
-    try {
-      const raw = getCookie(TODAY_RUN_COOKIE);
-      if (!raw) return null;
-      return JSON.parse(raw) as TodayRunSnapshot;
-    } catch {
-      return null;
-    }
-  }, [getCookie]);
-
-  const saveTodayRun = useCallback(
-    (snap: TodayRunSnapshot) => {
-      setCookie(TODAY_RUN_COOKIE, JSON.stringify(snap), 7);
-    },
-    [setCookie],
+  const [todayRun, setTodayRun, clearTodayRun] = useCookieStorage<TodayRunSnapshot | null>(
+    TODAY_RUN_COOKIE,
+    null,
+    7,
   );
-
-  const clearTodayRun = useCallback(() => {
-    setCookie(TODAY_RUN_COOKIE, "", 0);
-  }, [setCookie]);
 
   // =========================================================
   // 3) UI + GAME STATE
@@ -100,13 +59,18 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
     ),
   );
 
+  const filteredCharacters = useMemo(
+    () =>
+      Object.entries(CHARACTER_DATA).filter(
+        ([_, data]) => filterMode === "all" || activeElements[data.element as Element],
+      ),
+    [filterMode, activeElements],
+  );
+
   const [showShare, setShowShare] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
 
   const [showStats, setShowStats] = useState(false);
-  const [scoresSnapshot, setScoresSnapshot] = useState<Record<string, DailyScore>>(() =>
-    loadScores(),
-  );
 
   const [state, setState] = useState<GameState>(initialState);
   const [preview, setPreview] = useState<string[]>([]);
@@ -122,9 +86,6 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
   const [isDateLoading, setIsDateLoading] = useState(false);
 
   const [endlessNonce, setEndlessNonce] = useState(0);
-
-  // Endless-only: avoid repeats within this session (best-effort)
-  const seenEndlessIdsRef = useRef<Set<string>>(new Set());
 
   // Used to avoid writing placeholder state into cookies mid-load
   const [loadedPuzzleId, setLoadedPuzzleId] = useState<string | null>(null);
@@ -197,7 +158,7 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
   const writeTodayRun = useCallback(() => {
     if (!canPersistToday()) return;
 
-    saveTodayRun({
+    setTodayRun({
       date: selectedDate,
       puzzleId: loadedPuzzleId!, // safe after canPersistToday()
       preview,
@@ -207,7 +168,7 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
     });
   }, [
     canPersistToday,
-    saveTodayRun,
+    setTodayRun,
     selectedDate,
     loadedPuzzleId,
     preview,
@@ -251,7 +212,7 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
       if (selectedDate !== todayUTC()) return;
       if (!finalState.isOver) return;
 
-      const scores = loadScores();
+      const scores = scoresSnapshot;
       if (scores[selectedDate]) return; // already recorded for this date
 
       if (finalState.isWin) {
@@ -262,170 +223,116 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
         scores[selectedDate] = "FAIL";
       }
 
-      saveScores(scores);
       setScoresSnapshot(scores);
       setShowStats(true);
     },
-    [isEndless, selectedDate, todayUTC, loadScores, saveScores],
+    [isEndless, selectedDate, todayUTC, scoresSnapshot, setScoresSnapshot],
   );
 
   // =========================================================
   // 7) LOAD PUZZLE (and restore today run if applicable)
   // =========================================================
 
+  const {
+    data: puzzleData,
+    isLoading: isPuzzleLoading,
+    error: puzzleError,
+  } = usePuzzle(isEndless ? "endless" : "daily", selectedDate, endlessNonce);
+
+  setIsDateLoading(isPuzzleLoading);
+  setLoadError(puzzleError);
+
   useEffect(() => {
-    const load = async () => {
-      // Clear UI state immediately when switching date / puzzle
-      setLoadError(null);
+    if (!puzzleData) {
       setPuzzleImageUrl(null);
       setPreview([]);
       setState(initialState);
-
       setPrevDate(null);
       setNextDate(null);
-
       setLoadedPuzzleId(null);
-      setIsDateLoading(true);
+      return;
+    }
 
-      try {
-        const tryLimit = isEndless ? 6 : 1;
-        let row: any = null;
+    if (!isEndless && puzzleData.date && puzzleData.date !== selectedDate) {
+      setSelectedDate(puzzleData.date);
+      return;
+    }
 
-        for (let attempt = 0; attempt < tryLimit; attempt++) {
-          const endpoint = isEndless
-            ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get_random_puzzle`
-            : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get_daily_puzzle?date=${selectedDate}`;
+    if (!isEndless) {
+      setPrevDate(puzzleData.prev_date ?? null);
+      setNextDate(puzzleData.next_date ?? null);
+    } else {
+      setPrevDate(null);
+      setNextDate(null);
+    }
 
-          const res = await fetch(endpoint, {
-            method: "GET",
-            headers: {
-              apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            },
-          });
+    setPuzzleImageUrl(puzzleData.image_url ?? null);
 
-          if (!res.ok) {
-            const text = await res.text();
-            setIsDateLoading(false);
+    const teamNames: string[] = puzzleData.team ?? [];
+    const elements: string[] = puzzleData.elements ?? [];
 
-            if (!isEndless && res.status === 404 && text.includes("No unused submissions left")) {
-              setLoadError("No daily puzzles available right now. Please check back later.");
-              return;
-            }
-
-            setLoadError(
-              isEndless
-                ? "Failed to load endless puzzle. Please try again."
-                : "Failed to load daily puzzle. Please refresh and try again.",
-            );
-            return;
-          }
-
-          const candidate = await res.json();
-
-          if (!isEndless) {
-            row = candidate;
-            break;
-          }
-
-          const idStr = String(candidate?.id ?? "");
-          if (!idStr) {
-            row = candidate;
-            break;
-          }
-
-          if (!seenEndlessIdsRef.current.has(idStr)) {
-            seenEndlessIdsRef.current.add(idStr);
-            row = candidate;
-            break;
-          }
-
-          // duplicate -> try again
-        }
-
-        if (!row) {
-          setIsDateLoading(false);
-          setLoadError("No new endless puzzles found right now. Try again later.");
-          return;
-        }
-
-        // If server corrected date, update and let effect rerun (daily only)
-        if (!isEndless && row.date && row.date !== selectedDate) {
-          setSelectedDate(row.date);
-          setIsDateLoading(false);
-          return;
-        }
-
-        setIsDateLoading(false);
-
-        if (!isEndless) {
-          setPrevDate(row.prev_date ?? null);
-          setNextDate(row.next_date ?? null);
-        } else {
-          setPrevDate(null);
-          setNextDate(null);
-        }
-
-        setPuzzleImageUrl(row.image_url ?? null);
-
-        const teamNames: string[] = row.team ?? [];
-        const elements: string[] = row.elements ?? [];
-
-        const baseState: GameState = {
-          ...initialState,
-          puzzle: {
-            ...initialState.puzzle,
-            id: String(row.id),
-            strongestHit: Number(row.strongest_hit),
-            totalDps: Number(row.total_dps),
-            team: teamNames.map((name: string, i: number) => ({
-              name,
-              element: (elements[i] ?? "None") as Element,
-              individualDps: 0,
-              damagePercentage: 0,
-            })),
-            constellations: row.constellations ?? ["Hidden", "Hidden", "Hidden", "Hidden"],
-            refinements: row.refinements ?? ["Hidden", "Hidden", "Hidden", "Hidden"],
-            genshinUid: row.genshin_uid ?? null,
-          },
-        };
-
-        setLoadedPuzzleId(String(row.id));
-
-        // Restore only for TODAY + daily mode, only if puzzleId matches
-        if (!isEndless) {
-          const isToday = row.date === todayUTC();
-          const run = loadTodayRun();
-
-          if (isToday && run && run.date === row.date && run.puzzleId === String(row.id)) {
-            let rebuilt = baseState;
-            for (const g of run.guesses) rebuilt = makeGuess(rebuilt, { characters: g });
-
-            setState(revealAllHintsIfWin(rebuilt));
-            setPreview(run.preview ?? []);
-            return;
-          }
-
-          // If we're on today but cookie refers to a different puzzle, discard it
-          if (isToday && run && run.date === row.date && run.puzzleId !== String(row.id)) {
-            clearTodayRun();
-          }
-        }
-
-        setState(baseState);
-      } catch (e) {
-        setIsDateLoading(false);
-        console.error("Failed to load puzzle:", e);
-        setLoadError(
-          isEndless
-            ? "Failed to load endless puzzle. Please try again."
-            : "Failed to load daily puzzle. Please refresh and try again.",
-        );
-      }
+    const baseState: GameState = {
+      ...initialState,
+      puzzle: {
+        ...initialState.puzzle,
+        id: String(puzzleData.id),
+        strongestHit: Number(puzzleData.strongest_hit),
+        totalDps: Number(puzzleData.total_dps),
+        team: teamNames.map((name: string, i: number) => ({
+          name,
+          element: (elements[i] ?? "None") as Element,
+          individualDps: 0,
+          damagePercentage: 0,
+        })),
+        constellations: (puzzleData.constellations ?? [
+          "Hidden",
+          "Hidden",
+          "Hidden",
+          "Hidden",
+        ]) as GameState["puzzle"]["constellations"],
+        refinements: (puzzleData.refinements ?? [
+          "Hidden",
+          "Hidden",
+          "Hidden",
+          "Hidden",
+        ]) as GameState["puzzle"]["refinements"],
+        genshinUid: puzzleData.genshin_uid ?? null,
+      },
     };
 
-    load();
-  }, [selectedDate, endlessNonce, isEndless, todayUTC, loadTodayRun, clearTodayRun]);
+    setLoadedPuzzleId(String(puzzleData.id));
+
+    if (!isEndless) {
+      const isToday = puzzleData.date === todayUTC();
+      const run = todayRun;
+
+      if (
+        isToday &&
+        run &&
+        run.date === puzzleData.date &&
+        run.puzzleId === String(puzzleData.id)
+      ) {
+        let rebuilt = baseState;
+        for (const g of run.guesses) rebuilt = makeGuess(rebuilt, { characters: g });
+
+        setState(revealAllHintsIfWin(rebuilt));
+        setPreview(run.preview ?? []);
+        return;
+      }
+
+      if (
+        isToday &&
+        run &&
+        run.date === puzzleData.date &&
+        run.puzzleId !== String(puzzleData.id)
+      ) {
+        clearTodayRun();
+      }
+    }
+
+    setState(baseState);
+    setPreview([]);
+  }, [puzzleData, isEndless, selectedDate, todayUTC, todayRun, clearTodayRun]);
 
   // =========================================================
   // 8) GAMEPLAY CONTROLS
@@ -495,24 +402,11 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
     // No manual today-run write needed; autosave will run
   }, [preview, isGameOver, state, recordScoreIfToday]);
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (isGameOver) return;
-
-      if (e.key === "Backspace") {
-        e.preventDefault();
-        removeLastPreview();
-      }
-
-      if (e.key === "Enter") {
-        e.preventDefault();
-        submitGuess();
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isGameOver, removeLastPreview, submitGuess]);
+  useKeyboardShortcuts({
+    onBackspace: removeLastPreview,
+    onEnter: submitGuess,
+    enabled: !isGameOver,
+  });
 
   // =========================================================
   // 9) HINT REVEAL
@@ -588,7 +482,7 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
     <div style={{ minHeight: "100vh" }}>
       <TopTabs onShowScores={() => setShowStats(true)} />
       {/* ================= STATS MODAL ================= */}
-      {showStats && (
+      {showStats ? (
         <button
           type="button"
           style={{
@@ -710,11 +604,11 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
             })()}
           </div>
         </button>
-      )}
+      ) : null}
 
       {/* ================= SHARE MODAL ================= */}
 
-      {showShare && (
+      {showShare ? (
         <button
           type="button"
           style={{
@@ -798,7 +692,7 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
             </div>
           </div>
         </button>
-      )}
+      ) : null}
 
       <div style={{ padding: "1rem" }}>
         {/* ================= MAIN LAYOUT ================= */}
@@ -959,39 +853,33 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
                 width: "100%",
               }}
             >
-              {Object.entries(CHARACTER_DATA)
-                .filter((entry) => {
-                  const data = entry[1];
-                  if (filterMode === "all") return true;
-                  return activeElements[data.element as Element];
-                })
-                .map(([name]) => (
-                  <button
-                    key={name}
-                    onClick={() => addToPreview(name)}
-                    disabled={isGameOver}
-                    title={name}
+              {filteredCharacters.map(([name]) => (
+                <button
+                  key={name}
+                  onClick={() => addToPreview(name)}
+                  disabled={isGameOver}
+                  title={name}
+                  style={{
+                    width: 64,
+                    height: 64,
+                    padding: 4,
+                    borderRadius: 6,
+                    border: "1px solid #444",
+                    background: getGridBg(name),
+                    cursor: "pointer",
+                  }}
+                >
+                  <img
+                    src={CHARACTER_DATA[name].iconUrl}
+                    alt={name}
                     style={{
-                      width: 64,
-                      height: 64,
-                      padding: 4,
-                      borderRadius: 6,
-                      border: "1px solid #444",
-                      background: getGridBg(name),
-                      cursor: "pointer",
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
                     }}
-                  >
-                    <img
-                      src={CHARACTER_DATA[name].iconUrl}
-                      alt={name}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "contain",
-                      }}
-                    />
-                  </button>
-                ))}
+                  />
+                </button>
+              ))}
             </div>
           </div>
 

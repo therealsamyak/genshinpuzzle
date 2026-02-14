@@ -1,8 +1,11 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import DailyPuzzle from "./components/DailyPuzzle";
-import SubmitDummy from "./components/SubmitDummy";
-import Roadmap from "./components/Roadmap";
 import Footer from "./components/Footer";
+import LoadingSpinner from "./components/LoadingSpinner";
+
+const DailyPuzzle = lazy(() => import("./components/DailyPuzzle"));
+const SubmitDummy = lazy(() => import("./components/SubmitDummy"));
+const Roadmap = lazy(() => import("./components/Roadmap"));
 
 function App() {
   return (
@@ -14,13 +17,15 @@ function App() {
       }}
     >
       <div style={{ flex: 1 }}>
-        <Routes>
-          <Route path="/" element={<DailyPuzzle />} />
-          <Route path="/endless" element={<DailyPuzzle mode="endless" />} />
-          <Route path="/submit" element={<SubmitDummy />} />
-          <Route path="/roadmap" element={<Roadmap />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <Suspense fallback={<LoadingSpinner />}>
+          <Routes>
+            <Route path="/" element={<DailyPuzzle />} />
+            <Route path="/endless" element={<DailyPuzzle mode="endless" />} />
+            <Route path="/submit" element={<SubmitDummy />} />
+            <Route path="/roadmap" element={<Roadmap />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </div>
 
       <Footer />
