@@ -9,14 +9,8 @@ const Roadmap = lazy(() => import("./components/Roadmap"));
 
 function App() {
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      <div style={{ flex: 1 }}>
+    <div className="min-h-screen flex flex-col">
+      <div className="flex-1">
         <Suspense fallback={<LoadingSpinner />}>
           <Routes>
             <Route path="/" element={<DailyPuzzle />} />

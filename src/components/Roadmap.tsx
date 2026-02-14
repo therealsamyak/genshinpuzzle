@@ -2,13 +2,13 @@ import TopTabs from "./TopTabs";
 
 export default function Roadmap() {
   return (
-    <div style={{ minHeight: "100vh" }}>
+    <div className="min-h-screen">
       <TopTabs />
 
-      <div style={{ padding: "1rem", maxWidth: 900, margin: "0 auto" }}>
-        <h3 style={{ marginTop: 0 }}>Planned Changes</h3>
+      <div className="p-4 max-w-[900px] mx-auto">
+        <h3 className="mt-0">Planned Changes</h3>
 
-        <div style={{ whiteSpace: "pre-line", lineHeight: 1.6, opacity: 0.9 }}>
+        <div className="whitespace-pre-line leading-relaxed opacity-90">
           {`High Priority (Next Work)
 
 Gameplay / UX

@@ -3,14 +3,12 @@ import { Link, useLocation } from "react-router-dom";
 type Props = {
   title?: string;
   statusText?: string;
-  statusColor?: string;
   onShowScores?: () => void;
 };
 
 export default function TopTabs({
   title = "Genshin Dummy Guesser",
   statusText,
-  statusColor,
   onShowScores,
 }: Props) {
   const { pathname } = useLocation();
@@ -20,58 +18,41 @@ export default function TopTabs({
   const isSubmit = pathname === "/submit";
   const isRoadmap = pathname === "/roadmap";
 
-  const tabStyle = (active: boolean): React.CSSProperties => ({
-    width: 110,
-    height: active ? 40 : 35, // active looks lower while still touching top
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: 700,
-    fontSize: "0.95rem",
-    textDecoration: "none",
-    color: active ? "#fff" : "#cfcfcf",
-    background: active ? "#2a2a2a" : "#1f1f1f",
-    borderBottom: "1px solid #444",
-    borderLeft: "1px solid #444",
-    borderRight: "1px solid #444",
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-  });
+  const tabClasses = (active: boolean): string =>
+    `w-[110px] ${active ? "h-10 text-white bg-[#2a2a2a]" : "h-[35px] text-gray-300 bg-[#1f1f1f]"} inline-flex items-center justify-center font-bold text-[0.95rem] no-underline border-b border-l border-r border-[#444] rounded-b-2xl`;
 
   return (
-    <div style={{ marginBottom: 32, marginLeft: 32 }}>
-      <div style={{ display: "flex", gap: 32, alignItems: "flex-start" }}>
-        <Link to="/" style={{ textDecoration: "none", color: "inherit" }}>
-          <h2 style={{ margin: 0 }}>{title}</h2>
+    <div className="mb-8 ml-8">
+      <div className="flex gap-8 items-start">
+        <Link to="/" className="no-underline text-inherit">
+          <h2 className="m-0">{title}</h2>
         </Link>
-        <div style={{ display: "flex", gap: 12 }}>
-          <Link to="/" style={tabStyle(isGame)}>
+        <div className="flex gap-3">
+          <Link to="/" className={tabClasses(isGame)}>
             Daily
           </Link>
-          <Link to="/endless" style={tabStyle(isEndless)}>
+          <Link to="/endless" className={tabClasses(isEndless)}>
             Endless
           </Link>
-          <Link to="/submit" style={tabStyle(isSubmit)}>
+          <Link to="/submit" className={tabClasses(isSubmit)}>
             Submit
           </Link>
-          <Link to="/roadmap" style={tabStyle(isRoadmap)}>
+          <Link to="/roadmap" className={tabClasses(isRoadmap)}>
             Roadmap
           </Link>
           {onShowScores ? (
-            <button type="button" onClick={onShowScores} style={tabStyle(false)}>
+            <button type="button" onClick={onShowScores} className={tabClasses(false)}>
               Scores
             </button>
           ) : null}
         </div>
-        <div style={{ marginTop: 6, fontSize: 12, opacity: 0.65 }}>
+        <div className="mt-1.5 text-xs opacity-65">
           Made by{" "}
           <a
             href="https://www.youtube.com/c/Watchful"
             target="_blank"
             rel="noopener noreferrer"
-            style={{ color: "inherit", textDecoration: "underline" }}
+            className="text-inherit underline"
           >
             Watchful
           </a>
@@ -82,7 +63,7 @@ export default function TopTabs({
             href="https://www.twitch.tv/zajef77"
             target="_blank"
             rel="noopener noreferrer"
-            style={{ color: "inherit", textDecoration: "underline" }}
+            className="text-inherit underline"
           >
             Zajef77
           </a>
@@ -90,15 +71,7 @@ export default function TopTabs({
         </div>
 
         {statusText && (
-          <div
-            style={{
-              flex: 1,
-              textAlign: "center",
-              fontSize: "1.4rem",
-              fontWeight: 700,
-              color: statusColor,
-            }}
-          >
+          <div className="flex-1 text-center text-[1.4rem] font-bold text-inherit">
             {statusText}
           </div>
         )}
