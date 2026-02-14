@@ -10,37 +10,38 @@ export default function OptionsPage() {
   } = useSettings();
 
   return (
-    <div style={{ minHeight: "100vh", padding: 32 }}>
+    <div style={{ minHeight: "100vh"}}>
       <TopTabs />
+      <div style={{ paddingLeft: 32}}>
+        <h2>Options</h2>
 
-      <h2>Options</h2>
+        <div style={{ marginBottom: 24 }}>
+            <label style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <input
+                type="checkbox"
+                checked={autoRevealHints}
+                onChange={(e) => setAutoRevealHints(e.target.checked)}
+            />
+            Auto-Reveal Hints
+            </label>
+        </div>
 
-      <div style={{ marginBottom: 24 }}>
-        <label style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <input
-            type="checkbox"
-            checked={autoRevealHints}
-            onChange={(e) => setAutoRevealHints(e.target.checked)}
-          />
-          Auto-Reveal Hints
-        </label>
-      </div>
-
-      <div>
-        <label>
-          Character Layout Order
-          <br />
-          <select
-            value={characterOrder}
-            onChange={(e) =>
-              setCharacterOrder(e.target.value as "name" | "release")
-            }
-            style={{ marginTop: 8, height: 32 }}
-          >
-            <option value="name">By Name</option>
-            <option value="release">By Release Date</option>
-          </select>
-        </label>
+        <div>
+            <label>
+            Character Layout Order
+            <br />
+            <select
+                value={characterOrder}
+                onChange={(e) =>
+                setCharacterOrder(e.target.value as "name" | "release")
+                }
+                style={{ marginTop: 8, height: 32 }}
+            >
+                <option value="name">By Name</option>
+                <option value="release">By Release Date</option>
+            </select>
+            </label>
+        </div>
       </div>
     </div>
   );
