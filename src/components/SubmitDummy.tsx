@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import TopTabs from "./TopTabs";
 import type { Element } from "../game/types";
 import { CHARACTER_DATA } from "../game/characters";
@@ -205,12 +205,8 @@ export default function SubmitDummy() {
     ),
   );
 
-  const filteredCharacters = useMemo(
-    () =>
-      Object.entries(CHARACTER_DATA).filter(
-        ([_, data]) => filterMode === "all" || activeElements[data.element as Element],
-      ),
-    [filterMode, activeElements],
+  const filteredCharacters = Object.entries(CHARACTER_DATA).filter(
+    ([_, data]) => filterMode === "all" || activeElements[data.element as Element],
   );
 
   const clickAll = () => {

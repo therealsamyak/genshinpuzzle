@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { GameState, Guess, Element } from "../game/types";
 import { initialState } from "../game/initialState";
 import { makeGuess } from "../game/gameController";
 import { CHARACTER_DATA } from "../game/characters";
 import TopTabs from "./TopTabs";
-import { useCookieStorage } from "../hooks/useCookie";
-import { usePuzzle } from "../hooks/usePuzzle";
+import { useCookieStorage } from "./DailyPuzzle/useCookie";
+import { usePuzzle } from "./DailyPuzzle/usePuzzle";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 
 type Props = { mode?: "daily" | "endless" };
@@ -59,12 +59,8 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
     ),
   );
 
-  const filteredCharacters = useMemo(
-    () =>
-      Object.entries(CHARACTER_DATA).filter(
-        ([_, data]) => filterMode === "all" || activeElements[data.element as Element],
-      ),
-    [filterMode, activeElements],
+  const filteredCharacters = Object.entries(CHARACTER_DATA).filter(
+    ([_, data]) => filterMode === "all" || activeElements[data.element as Element],
   );
 
   const [showShare, setShowShare] = useState(false);
@@ -76,23 +72,31 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
   const [preview, setPreview] = useState<string[]>([]);
 
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [puzzleImageUrl, setPuzzleImageUrl] = useState<string | null>(null);
 
   const [selectedDate, setSelectedDate] = useState<string>(() =>
     new Date().toISOString().slice(0, 10),
   );
-  const [prevDate, setPrevDate] = useState<string | null>(null);
-  const [nextDate, setNextDate] = useState<string | null>(null);
   const [isDateLoading, setIsDateLoading] = useState(false);
 
   const [endlessNonce, setEndlessNonce] = useState(0);
 
-  // Used to avoid writing placeholder state into cookies mid-load
-  const [loadedPuzzleId, setLoadedPuzzleId] = useState<string | null>(null);
-
   const isTodaySelected = selectedDate === todayUTC();
   const isGameOver = state.isWin || state.isOver;
   const isEndless = mode === "endless";
+
+  const {
+    data: puzzleData,
+    isLoading: isPuzzleLoading,
+    error: puzzleError,
+  } = usePuzzle(isEndless ? "endless" : "daily", selectedDate, endlessNonce);
+
+  setIsDateLoading(isPuzzleLoading);
+  setLoadError(puzzleError);
+
+  const puzzleImageUrl = puzzleData?.image_url ?? null;
+  const loadedPuzzleId = puzzleData ? String(puzzleData.id) : null;
+  const prevDate = isEndless ? null : (puzzleData?.prev_date ?? null);
+  const nextDate = isEndless ? null : (puzzleData?.next_date ?? null);
 
   const revealAllHintsIfWin = (s: GameState): GameState => {
     if (!s.isWin) return s;
@@ -155,27 +159,24 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
     return true;
   }, [isEndless, isTodaySelected, isDateLoading, loadedPuzzleId, state.puzzle.id]);
 
-  const writeTodayRun = useCallback(() => {
-    if (!canPersistToday()) return;
+  const writeTodayRun = useCallback(
+    (overridePreview?: string[], overrideState?: GameState) => {
+      if (!canPersistToday()) return;
 
-    setTodayRun({
-      date: selectedDate,
-      puzzleId: loadedPuzzleId!, // safe after canPersistToday()
-      preview,
-      guesses: state.guessesSoFar.map((g) => g.characters),
-      isWin: state.isWin,
-      isOver: state.isOver,
-    });
-  }, [
-    canPersistToday,
-    setTodayRun,
-    selectedDate,
-    loadedPuzzleId,
-    preview,
-    state.guessesSoFar,
-    state.isWin,
-    state.isOver,
-  ]);
+      const actualPreview = overridePreview ?? preview;
+      const actualState = overrideState ?? state;
+
+      setTodayRun({
+        date: selectedDate,
+        puzzleId: loadedPuzzleId!, // safe after canPersistToday()
+        preview: actualPreview,
+        guesses: actualState.guessesSoFar.map((g) => g.characters),
+        isWin: actualState.isWin,
+        isOver: actualState.isOver,
+      });
+    },
+    [canPersistToday, setTodayRun, selectedDate, loadedPuzzleId, preview, state],
+  );
 
   // Manual flush used when leaving today via arrows
   const persistTodayNow = useCallback(() => {
@@ -186,21 +187,10 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
   // DATE NAVIGATION HANDLER
   // -----------------------------
   const goToDate = (d: string) => {
-    // If we are leaving today's puzzle, persist progress first
     persistTodayNow();
-
-    // Block autosave effects during transition render
     setIsDateLoading(true);
-    setPrevDate(null);
-    setNextDate(null);
-
     setSelectedDate(d);
   };
-
-  // Autosave whenever the run changes (today only, loaded puzzle only)
-  useEffect(() => {
-    writeTodayRun();
-  }, [writeTodayRun]);
 
   // =========================================================
   // 6) DAILY SCORE RECORDING (on game end, today only)
@@ -233,23 +223,10 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
   // 7) LOAD PUZZLE (and restore today run if applicable)
   // =========================================================
 
-  const {
-    data: puzzleData,
-    isLoading: isPuzzleLoading,
-    error: puzzleError,
-  } = usePuzzle(isEndless ? "endless" : "daily", selectedDate, endlessNonce);
-
-  setIsDateLoading(isPuzzleLoading);
-  setLoadError(puzzleError);
-
   useEffect(() => {
     if (!puzzleData) {
-      setPuzzleImageUrl(null);
       setPreview([]);
       setState(initialState);
-      setPrevDate(null);
-      setNextDate(null);
-      setLoadedPuzzleId(null);
       return;
     }
 
@@ -257,16 +234,6 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
       setSelectedDate(puzzleData.date);
       return;
     }
-
-    if (!isEndless) {
-      setPrevDate(puzzleData.prev_date ?? null);
-      setNextDate(puzzleData.next_date ?? null);
-    } else {
-      setPrevDate(null);
-      setNextDate(null);
-    }
-
-    setPuzzleImageUrl(puzzleData.image_url ?? null);
 
     const teamNames: string[] = puzzleData.team ?? [];
     const elements: string[] = puzzleData.elements ?? [];
@@ -299,8 +266,6 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
         genshinUid: puzzleData.genshin_uid ?? null,
       },
     };
-
-    setLoadedPuzzleId(String(puzzleData.id));
 
     if (!isEndless) {
       const isToday = puzzleData.date === todayUTC();
@@ -340,19 +305,16 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
 
   const nextEndlessPuzzle = () => {
     if (!isEndless) return;
-
-    // clear current run UI immediately
     setLoadError(null);
-    setPuzzleImageUrl(null);
     setPreview([]);
     setState(initialState);
-    setLoadedPuzzleId(null);
-
     setEndlessNonce((n) => n + 1);
   };
 
   const removePreviewAt = (index: number) => {
-    setPreview((prev) => prev.filter((_, i) => i !== index));
+    const newPreview = preview.filter((_, i) => i !== index);
+    setPreview(newPreview);
+    writeTodayRun(newPreview);
   };
 
   const addToPreview = (name: string) => {
@@ -360,17 +322,23 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
 
     // toggle: if already selected, remove it
     if (preview.includes(name)) {
-      setPreview((prev) => prev.filter((c) => c !== name));
+      const newPreview = preview.filter((c) => c !== name);
+      setPreview(newPreview);
+      writeTodayRun(newPreview);
       return;
     }
 
     if (preview.length >= 4) return;
-    setPreview((prev) => [...prev, name]);
+    const newPreview = [...preview, name];
+    setPreview(newPreview);
+    writeTodayRun(newPreview);
   };
 
   const removeLastPreview = useCallback(() => {
-    setPreview((prev) => prev.slice(0, -1));
-  }, []);
+    const newPreview = preview.slice(0, -1);
+    setPreview(newPreview);
+    writeTodayRun(newPreview);
+  }, [preview, writeTodayRun]);
 
   const submitGuess = useCallback(() => {
     if (preview.length !== 4 || isGameOver) return;
@@ -397,10 +365,9 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
 
     setState(finalState);
     recordScoreIfToday(finalState);
-
     setPreview([]);
-    // No manual today-run write needed; autosave will run
-  }, [preview, isGameOver, state, recordScoreIfToday]);
+    writeTodayRun([], finalState);
+  }, [preview, isGameOver, state, recordScoreIfToday, writeTodayRun]);
 
   useKeyboardShortcuts({
     onBackspace: removeLastPreview,
