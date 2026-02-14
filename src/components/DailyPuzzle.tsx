@@ -1195,7 +1195,7 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
               }}
             >
               {Object.entries(CHARACTER_DATA)
-                .sort(([aKey, a], [bKey, b]) => {
+                .sort(([, a], [, b]) => {
                   if (characterOrder === "name") {
                     return a.name.localeCompare(b.name);
                   }
