@@ -1276,8 +1276,7 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
                   lineHeight: 1.4,
                 }}
               >
-                Endless mode may show puzzles that could appear in a future Daily. There aren&apos;t enough
-                entries to fully separate the pools.
+                Endless mode may show puzzles that have constellations on 5 star characters, underlevelled characters or a variety of other variences.
               </div>
             )}
 
