@@ -631,22 +631,30 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
   const answerPreview = state.puzzle.team.map((c) => c.name);
   const displaySlots = isGameOver ? answerPreview : preview;
 
-  // Characters that were ever GREEN (exact match)
-  const correctCharacters = state.guessesSoFar.flatMap((g, i) =>
-    g.characters.filter((_, j) => state.gridTiles[i][j] === "GREEN"),
-  );
+  const correctCharacters = new Set<string>();
+  const wrongCharacters = new Set<string>(); // GRAY only
+  const guessedNotGreen = new Set<string>(); // YELLOW + GRAY
 
-  const correctCharacterSet = new Set(correctCharacters);
+  state.guessesSoFar.forEach((guess, i) => {
+    guess.characters.forEach((char, j) => {
+      const tile = state.gridTiles[i]?.[j];
 
-  // Characters that were ever totally wrong (GRAY)
-  const wrongCharacters = state.guessesSoFar.flatMap((g, i) =>
-    g.characters.filter((_, j) => state.gridTiles[i][j] === "GRAY"),
-  );
+      if (tile === "GREEN") {
+        correctCharacters.add(char);
+        guessedNotGreen.delete(char); // if it becomes green later, remove from darkened set
+        wrongCharacters.delete(char);
+        return;
+      }
+
+      if (tile === "GRAY") wrongCharacters.add(char);
+      if (tile === "YELLOW" || tile === "GRAY") guessedNotGreen.add(char);
+    });
+  });
 
   const getGridBg = (name: string) => {
-    if (correctCharacters.includes(name)) return "#2f6f3a"; // green
-    if (wrongCharacters.includes(name)) return "#1f1f1f"; // darker for wrong
-    return "#2a2a2a"; // neutral
+    if (correctCharacters.has(name)) return "#2f6f3a";
+    if (guessedNotGreen.has(name)) return "#1f1f1f";
+    return "#2a2a2a";
   };
 
   const canShare =
@@ -946,7 +954,7 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
                       alignItems: "center",
                       justifyContent: "center",
                       background:
-                        char && correctCharacterSet.has(char)
+                        char && correctCharacters.has(char)
                           ? "#2f6f3a"
                           : "#1f1f1f",
                       cursor: char ? "pointer" : "default",
@@ -1249,8 +1257,8 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
                         width: "100%",
                         height: "100%",
                         objectFit: "contain",
-                        opacity: wrongCharacters.includes(name) ? 0.25 : 1,
-                        filter: wrongCharacters.includes(name) ? "grayscale(0.6)" : "none",
+                        opacity: guessedNotGreen.has(name) ? 0.25 : 1,
+                        filter: guessedNotGreen.has(name) ? "grayscale(0.6)" : "none",
                       }}
                     />
                   </button>
