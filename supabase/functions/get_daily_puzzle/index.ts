@@ -78,47 +78,62 @@ serve(async (req) => {
           headers: corsHeaders,
         });
       }
-      // 2a) Count unused
-      const { count: unusedCount, error: countErr } = await admin
-        .from("dummy_submissions")
-        .select("id", { count: "exact", head: true })
-        .is("featured_date", null);
 
-      if (countErr) {
-        return new Response("dummy_submissions unused count failed", {
-          status: 500,
-          headers: corsHeaders,
-        });
+      // 2a) Count/pick pool: prefer 'Daily', fallback to NULL (unassigned)
+      type PoolPick = { pool: "Daily" | null; count: number };
+
+      const poolsToTry: PoolPick[] = [
+        { pool: "Daily", count: 0 },
+        { pool: null, count: 0 },
+      ];
+
+      let pickedPool: "Daily" | null = null;
+      let nUnused = 0;
+
+      for (const p of poolsToTry) {
+        const q = admin
+          .from("dummy_submissions")
+          .select("id", { count: "exact", head: true })
+          .is("featured_date", null);
+
+        const { count, error } =
+          p.pool === null ? await q.is("puzzle_pool", null) : await q.eq("puzzle_pool", p.pool);
+
+        if (error) {
+          return new Response("dummy_submissions unused count failed", { status: 500, headers: corsHeaders });
+        }
+
+        const n = count ?? 0;
+        if (n > 0) {
+          pickedPool = p.pool;
+          nUnused = n;
+          break;
+        }
       }
 
-      const nUnused = unusedCount ?? 0;
       if (nUnused === 0) {
-        return new Response("No unused submissions left", {
-          status: 404,
-          headers: corsHeaders,
-        });
+        return new Response("No unused submissions left", { status: 404, headers: corsHeaders });
       }
 
-      // 2b) Random offset within unused set
+      // 2b) Random offset within chosen pool
       const offset = Math.floor(Math.random() * nUnused);
 
-      // 2c) Fetch one unused row (stable order)
-      const { data: pick, error: pickErr } = await admin
+      // 2c) Fetch one unused row (stable order) from chosen pool
+      let pickQuery = admin
         .from("dummy_submissions")
         .select("id")
-        .is("featured_date", null)
+        .is("featured_date", null);
+
+      pickQuery = pickedPool === null ? pickQuery.is("puzzle_pool", null) : pickQuery.eq("puzzle_pool", "Daily");
+
+      const { data: pick, error: pickErr } = await pickQuery
         .order("id", { ascending: true })
         .range(offset, offset)
         .maybeSingle();
 
       if (pickErr || !pick?.id) {
-        return new Response("Failed to pick unused submission", {
-          status: 500,
-          headers: corsHeaders,
-        });
+        return new Response("Failed to pick unused submission", { status: 500, headers: corsHeaders });
       }
-
-      submissionId = String(pick.id);
 
       // 2d) Insert today's daily row first (race-safe)
       const { error: insErr } = await admin

@@ -42,7 +42,7 @@ serve(async (req) => {
   const { count, error: countErr } = await admin
     .from("dummy_submissions")
     .select("id", { count: "exact", head: true })
-    .is("featured_date", null);
+    .eq("puzzle_pool", "Endless");
   if (countErr) {
     return new Response("Count failed", {
       status: 500,
@@ -64,10 +64,8 @@ serve(async (req) => {
   // 3) fetch one row
   const { data, error } = await admin
     .from("dummy_submissions")
-    .select(
-      "id, team, elements, strongest_hit, total_dps, image_path, constellations, refinements, genshin_uid",
-    )
-    .is("featured_date", null)
+    .select("id, team, elements, strongest_hit, total_dps, image_path, constellations, refinements, genshin_uid")
+    .eq("puzzle_pool", "Endless")
     .order("id", { ascending: true })
     .range(offset, offset)
     .maybeSingle();
