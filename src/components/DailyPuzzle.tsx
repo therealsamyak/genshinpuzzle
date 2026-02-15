@@ -1276,7 +1276,7 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
                   lineHeight: 1.4,
                 }}
               >
-                Endless mode may show puzzles that have constellations on limited 5 star characters, underlevelled characters or a variety of other variences.
+                Endless mode may show puzzles that have constellations on limited 5 ★ characters, underlevelled characters or a variety of other variences.
               </div>
             )}
 
