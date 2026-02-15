@@ -496,6 +496,22 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
     setPreview((prev) => prev.slice(0, -1));
   }, []);
 
+  const clearPreview = useCallback(() => {
+    setPreview([]);
+  }, []);
+
+  const getAllGreensSoFar = (s: GameState): string[] => {
+    const set = new Set<string>();
+
+    s.guessesSoFar.forEach((g, i) => {
+      g.characters.forEach((char, j) => {
+        if (s.gridTiles[i]?.[j] === "GREEN") set.add(char);
+      });
+    });
+
+    return Array.from(set).slice(0, 4);
+  };
+
   const submitGuess = useCallback(() => {
     if (preview.length !== 4 || isGameOver) return;
 
@@ -511,17 +527,7 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
     recordScoreIfToday(finalState);
 
     if (!finalState.isWin) {
-      const lastRowIndex = finalState.guessesSoFar.length - 1;
-
-      const greens: string[] = [];
-
-      finalState.guessesSoFar[lastRowIndex].characters.forEach((char, idx) => {
-        if (finalState.gridTiles[lastRowIndex][idx] === "GREEN") {
-          greens.push(char);
-        }
-      });
-
-      setPreview(greens);
+      setPreview(getAllGreensSoFar(finalState));
     } else {
       setPreview([]);
     }
@@ -991,6 +997,14 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
                 Backspace
               </button>
 
+              <button
+                type="button"
+                onClick={clearPreview}
+                disabled={preview.length === 0 || isGameOver}
+              >
+                Clear
+              </button>
+
               {/* SEARCH */}
               <div style={{ position: "relative" }}>
                 <input
@@ -1235,6 +1249,8 @@ export default function DailyPuzzle({ mode = "daily" }: Props) {
                         width: "100%",
                         height: "100%",
                         objectFit: "contain",
+                        opacity: wrongCharacters.includes(name) ? 0.25 : 1,
+                        filter: wrongCharacters.includes(name) ? "grayscale(0.6)" : "none",
                       }}
                     />
                   </button>
