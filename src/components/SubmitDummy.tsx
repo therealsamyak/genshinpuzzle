@@ -425,7 +425,7 @@ export default function SubmitDummy() {
               </div>
 
               <div style={{ marginTop: 10, opacity: 0.8, fontSize: 12, textAlign: "center" }}>
-              If your team has constellations on 5 ★ characters, or the DPS is way off it's expected amount,<br></br> it will probably get assigned to Endless mode.
+              If your team has constellations on limited 5 ★ characters, or the DPS is way off it's expected amount,<br></br> it will probably get assigned to Endless mode.
               </div>
 
               <button
